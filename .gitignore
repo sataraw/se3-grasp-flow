@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Data, checkpoints and run outputs (large, not versioned)
+data/
+results/
+train_results/
+test_results/
+
+# LaTeX build output
+latex/**/build/

@@ -1,0 +1,150 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\SO}{\mathrm{SO}(3)}
+\newcommand{\SE}{\mathrm{SE}(3)}
+\newcommand{\avg}{\mathrm{avg}}
+
+\begin{document}
+
+\title{Generative Networks for Robot Grasping}
+
+\author{
+  \IEEEauthorblockN{Georgii Fatakhov}
+  \IEEEauthorblockA{Technical University of Munich}
+  \and
+  \IEEEauthorblockN{Awar Satar}
+  \IEEEauthorblockA{Technical University of Munich}
+}
+
+\maketitle
+
+\begin{center}
+  \small Proposal $\cdot$ ADLR WS 2026/27, project idea 4
+\end{center}
+
+\section{Topic and Main Idea}
+
+Grasp synthesis for a parallel-jaw gripper is inherently multimodal, since a single object admits many valid
+grasps. Generative models address this by learning a distribution over 6-DoF end-effector poses conditioned on the
+observed object point cloud~\cite{eppner2021acronym,winkelbauer2022twostage}. Diffusion- and flow-based grasp
+generators on $\SE$~\cite{urain2023se3dif,lim2024equigraspflow} achieve state-of-the-art quality, but they require
+tens of network evaluations per sample, which limits their use in time-critical robotic applications.
+MeanFlow~\cite{geng2025meanflow} and its extension to Riemannian manifolds~\cite{woo2026riemannianmeanflow} reduce
+sampling to a few or a single network evaluation by learning the average velocity over a time interval instead of
+the instantaneous velocity. Two recent works apply this principle to grasping. GraspMF~\cite{bukhari2026graspmf}
+learns an average velocity field on $\SO \times \mathbb{R}^3$ and matches diffusion and flow baselines on ACRONYM
+with at most five network evaluations, at up to 39 times lower latency. GraspMeanFlow~\cite{kwon2026graspmeanflow}
+additionally preserves $\SE$-equivariance under few-step sampling and reaches with a single evaluation the
+distribution coverage that an iterative $\SE$ flow model attains after five.
+
+The goal of this project is to reimplement few-step, $\SE$-equivariant grasp generation, progressing from
+EquiGraspFlow~\cite{lim2024equigraspflow} to GraspMeanFlow~\cite{kwon2026graspmeanflow}, on the ACRONYM
+dataset~\cite{eppner2021acronym}, and to evaluate the resulting trade-off between grasp quality and inference
+latency in simulation with MuJoCo. Semantically conditioned grasp generation and additional training data are
+considered as optional extensions.
+
+% Defined early so it floats to the top of page 2 (a table* never lands on the page it is defined on).
+\begin{table*}[!t]
+  \caption{Milestones}
+  \label{tab:milestones}
+  \centering
+  \footnotesize
+  \begin{tabularx}{\textwidth}{@{}l p{2.6cm} X X l@{}}
+    \toprule
+    \# & Milestone & Content & Completion criterion & Depends on \\
+    \midrule
+    M1 & EquiGraspFlow baseline & Codebase setup, ACRONYM preprocessing (4 categories), evaluation of the
+      released checkpoint, own training & EMD of own training close to the published value and to the released
+      checkpoint & -- \\
+    M2 & MuJoCo evaluation & Floating parallel-jaw gripper (Panda hand), convex decomposition of object meshes,
+      collision and contact checks, lift-and-hold test, latency measurement & Ground-truth grasps succeed at
+      ${\gtrsim}\,90\,\%$, random grasps at ${\approx}\,0\,\%$; EquiGraspFlow evaluated across all NFE & -- \\
+    M3 & GraspMeanFlow-SG & Two-time conditioning, boundary and semigroup loss, Euler sampler, NFE sweep &
+      Equivariance verified to machine precision; EMD at NFE 1 clearly below that of EquiGraspFlow at NFE 1
+      (reported: ${\approx}\,0.42$ vs.\ $0.73$); success rates evaluated in MuJoCo & M1, M2 \\
+    M4 & Cloud scale-up & Transfer of training and evaluation to a GPU virtual machine on Google Compute Engine,
+      with data and checkpoints in Cloud Storage; full NFE sweeps, ablations, and MuJoCo evaluation at scale &
+      GMF-SG training on the virtual machine reproduces the local results; final experiments carried out there &
+      M3 \\
+    M5 & \textit{(optional)} Sampler improvement & Endpoint sampler with exponential $\SO$
+      schedule~\cite{kwon2026graspmeanflow} & Higher success rate at NFE 5 than the Euler sampler & M3 \\
+    M6 & \textit{(optional)} Extension & Part- or language-conditioned
+      generation~\cite{lundell2023constrained}, or QDGset~\cite{huber2024qdgset} as additional training data &
+      Defined upon selection & M3 \\
+    \bottomrule
+  \end{tabularx}
+\end{table*}
+
+\section{Technical Outline}
+
+\textbf{Base model.} The base model is EquiGraspFlow~\cite{lim2024equigraspflow}, a conditional flow-matching model
+on $\SO \times \mathbb{R}^3$ trained with Riemannian conditional flow
+matching~\cite{lipman2023flowmatching,chen2024riemannianfm}. A VN-DGCNN encoder maps the object point cloud to an
+equivariant feature, and a vector-neuron head predicts the angular and linear velocity of the grasp pose. The prior
+is uniform on $\SO$ and Gaussian around the point-cloud centroid. Since the prior is $\SE$-invariant and the network
+is $\SE$-equivariant by construction, generated grasps transform consistently with the object, and rotation
+augmentation is not required in principle. We build on the public implementation and released checkpoint of
+EquiGraspFlow.
+
+\textbf{Few-step model.} For few-step generation, we reimplement the semigroup variant of
+GraspMeanFlow~\cite{kwon2026graspmeanflow} (GMF-SG) on top of the EquiGraspFlow codebase, as no reference
+implementation is publicly available. The network is extended to predict the average velocity
+$(\omega^\avg, v^\avg)(s, t, T_t)$ over an interval $[s, t]$. The additional time input $h = t - s$ is injected
+through the existing equivariant time-lifting mechanism, which preserves equivariance and adds a negligible number
+of parameters. Training combines a flow-matching boundary term at $s = t$, which anchors the field to the data
+distribution, with a semigroup consistency term, which requires a direct step over $[s, t]$ to agree with the
+stop-gradient composition of two steps through an intermediate time $m \in [s, t]$. Both terms rely only on the
+exponential and logarithm maps of $\SO$ and avoid Jacobian--vector products. At inference, a sample is obtained by
+the update $R \leftarrow \exp(-\Delta t\,[\omega^\avg])\,R$ and $x \leftarrow x - \Delta t\, v^\avg$, with one
+network evaluation per step; a single step yields one-step generation.
+
+\textbf{Data.} We use ACRONYM~\cite{eppner2021acronym} with the four-category split of EquiGraspFlow (Bowl, Laptop,
+Mug, Pencil). Test objects are unseen instances of the training categories and are presented in random
+orientations.
+
+\textbf{Evaluation.} Distribution coverage is measured by the earth mover's distance (EMD) between generated and
+ground-truth grasp sets. As this metric is independent of the simulator, it permits direct comparison with
+published results. Physical feasibility is first assessed geometrically by the collision rate, the fraction of
+grasps in which the gripper intersects the object, and the contact rate, the fraction of grasps in which the object
+lies between the fingers. It is then measured by the success rate of a lift-and-hold test in MuJoCo, which replaces
+the Isaac Gym protocol of prior work. The test is calibrated with ground-truth grasps, which should succeed with
+high probability, and with random grasps, which should fail.
+
+Inference cost is reported as the number of network evaluations (NFE) and the wall-clock time per sample. Both
+models are compared at matched $\text{NFE} \in \{1, 2, 5, 10, 20\}$ following the protocol
+of~\cite{kwon2026graspmeanflow}, with EquiGraspFlow's default sampler as an additional reference point.
+
+\textbf{Technical contribution.} The project contributes, first, an independent reimplementation of
+GraspMeanFlow-SG~\cite{kwon2026graspmeanflow} from the publication alone, including a verification of the reported
+few-step results. Second, it provides a MuJoCo-based grasp-success evaluation that is calibrated against
+ground-truth and random grasps, applied identically to all methods, and independent of the deprecated Isaac Gym,
+which also makes it a possible starting point for a later transfer to Isaac Sim. Third, it yields a controlled
+comparison of flow matching and MeanFlow with identical backbone, data, and evaluation across the full range of
+sampling budgets. Optional extensions are the endpoint sampler of~\cite{kwon2026graspmeanflow}, part- or
+language-conditioned grasp generation related to constrained grasp sampling~\cite{lundell2023constrained}, and
+additional training data from QDGset~\cite{huber2024qdgset}.
+
+\section{Milestones}
+
+Table~\ref{tab:milestones} lists the milestones. M1 and M2 are independent and are carried out in parallel. M3
+constitutes the core result and requires both. Development begins locally, and M4 transfers the working pipeline to
+Google Cloud for the larger experiments. Should M3 remain incomplete, M1 and M2 still yield an evaluated
+flow-matching baseline.
+
+\section{Alternative Topics}
+
+As alternatives, we consider neural network-based world models (idea 11)~\cite{li2025robotworldmodel} and tactile
+exploration of objects (idea 2)~\cite{watkinsvalls2019multimodal}.
+
+\bibliographystyle{IEEEtran}
+\bibliography{adlr}
+
+\end{document}

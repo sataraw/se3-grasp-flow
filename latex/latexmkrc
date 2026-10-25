@@ -1,0 +1,18 @@
+# Build from this directory:   latexmk            (all documents)
+#                              latexmk -pvc       (rebuild on save)
+#                              latexmk -c         (remove build files)
+# PDFs land in <document>/build/.
+
+@default_files = ('proposal/proposal.tex');
+
+$pdf_mode = 1;
+$do_cd = 1;          # run inside each document's folder
+$out_dir = 'build';
+$bibtex_use = 2;     # run bibtex when needed, clean .bbl with -c
+
+# Shared IEEEtran.cls / IEEEtran.bst / adlr.bib live in latex/, one level above each
+# document. Relative on purpose: absolute paths from an MSYS perl (/e/...) break MiKTeX.
+# pdflatex runs in <document>/, bibtex in <document>/build/, hence '..' and '../..'.
+ensure_path('TEXINPUTS', '..');
+ensure_path('BIBINPUTS', '..', '../..');
+ensure_path('BSTINPUTS', '..', '../..');

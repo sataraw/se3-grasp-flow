@@ -1,0 +1,3 @@
+[submodule "third_party/EquiGraspFlow"]
+	path = third_party/EquiGraspFlow
+	url = https://github.com/bdlim99/EquiGraspFlow.git
