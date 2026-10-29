@@ -54,6 +54,11 @@ torch = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+# Pylance/pyright: resolve EquiGraspFlow's top-level packages (`models`, `utils`, ...), which
+# graspgen.egf puts on sys.path at runtime.
+[tool.pyright]
+extraPaths = ["src", "third_party/EquiGraspFlow"]
+
 [tool.ruff]
 line-length = 110
 extend-exclude = ["third_party"]
