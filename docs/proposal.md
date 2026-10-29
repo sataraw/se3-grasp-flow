@@ -32,9 +32,9 @@ Inference cost is reported as the number of network evaluations (NFE) and the wa
 |---|---|---|---|---|
 | M1 | EquiGraspFlow baseline | Codebase setup, ACRONYM preprocessing (4 categories), evaluation of the released checkpoint, own training | EMD of own training close to the published value and to the released checkpoint | – |
 | M2 | MuJoCo evaluation | Floating parallel-jaw gripper (Panda hand), convex decomposition of object meshes, collision and contact checks, lift-and-hold test, latency measurement | Ground-truth grasps succeed at ≳ 90 %, random grasps at ≈ 0 %; EquiGraspFlow evaluated across all NFE | – |
-| M3 | GraspMeanFlow-SG | Two-time conditioning, boundary and semigroup loss, Euler sampler, NFE sweep | Equivariance verified to machine precision; EMD at NFE 1 clearly below that of EquiGraspFlow at NFE 1 (reported: ≈ 0.42 vs. 0.73); success rates evaluated in MuJoCo | M1, M2 |
+| M3 | GraspMeanFlow-SG | Two-time conditioning, boundary and semigroup loss, Euler sampler, NFE sweep | Equivariance verified within a specified numerical tolerance; success rates evaluated in MuJoCo. We aim for an EMD at NFE 1 below that of EquiGraspFlow at NFE 1 (reported: ≈ 0.42 vs. 0.73) | M1, M2 |
 | M4 | Cloud scale-up | Transfer of training and evaluation to a GPU virtual machine on Google Compute Engine, with data and checkpoints in Cloud Storage; full NFE sweeps, ablations, and MuJoCo evaluation at scale | GMF-SG training on the virtual machine reproduces the local results; final experiments carried out there | M3 |
-| M5 | *(optional)* Sampler improvement | Endpoint sampler with exponential $SO(3)$ schedule [8] | Higher success rate at NFE 5 than the Euler sampler | M3 |
+| M5 | *(optional)* Sampler improvement | Endpoint sampler with exponential $SO(3)$ schedule [8] | Implemented and evaluated against the Euler sampler. We aim for a higher success rate at NFE 5 | M3 |
 | M6 | *(optional)* Extension | Part- or language-conditioned generation [11], or QDGset [12] as additional training data | Defined upon selection | M3 |
 
 M1 and M2 are independent and are carried out in parallel. M3 constitutes the core result and requires both. Development begins locally, and M4 transfers the working pipeline to Google Cloud for the larger experiments. Should M3 remain incomplete, M1 and M2 still yield an evaluated flow-matching baseline.

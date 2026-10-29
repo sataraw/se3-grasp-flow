@@ -52,6 +52,9 @@ latency in simulation with MuJoCo. Semantically conditioned grasp generation and
 considered as optional extensions.
 
 % Defined early so it floats to the top of page 2 (a table* never lands on the page it is defined on).
+% Its \cite calls would otherwise be numbered before those of Section II; register Section II's first
+% citations here so the reference numbers follow reading order.
+\nocite{lipman2023flowmatching,chen2024riemannianfm}
 \begin{table*}[!t]
   \caption{Milestones}
   \label{tab:milestones}
@@ -68,14 +71,14 @@ considered as optional extensions.
       collision and contact checks, lift-and-hold test, latency measurement & Ground-truth grasps succeed at
       ${\gtrsim}\,90\,\%$, random grasps at ${\approx}\,0\,\%$; EquiGraspFlow evaluated across all NFE & -- \\
     M3 & GraspMeanFlow-SG & Two-time conditioning, boundary and semigroup loss, Euler sampler, NFE sweep &
-      Equivariance verified to machine precision; EMD at NFE 1 clearly below that of EquiGraspFlow at NFE 1
-      (reported: ${\approx}\,0.42$ vs.\ $0.73$); success rates evaluated in MuJoCo & M1, M2 \\
+      Equivariance verified within a specified numerical tolerance; success rates evaluated in MuJoCo. We aim for an
+      EMD at NFE 1 below that of EquiGraspFlow at NFE 1 (reported: ${\approx}\,0.42$ vs.\ $0.73$) & M1, M2 \\
     M4 & Cloud scale-up & Transfer of training and evaluation to a GPU virtual machine on Google Compute Engine,
       with data and checkpoints in Cloud Storage; full NFE sweeps, ablations, and MuJoCo evaluation at scale &
       GMF-SG training on the virtual machine reproduces the local results; final experiments carried out there &
       M3 \\
     M5 & \textit{(optional)} Sampler improvement & Endpoint sampler with exponential $\SO$
-      schedule~\cite{kwon2026graspmeanflow} & Higher success rate at NFE 5 than the Euler sampler & M3 \\
+      schedule~\cite{kwon2026graspmeanflow} & Implemented and evaluated against the Euler sampler. We aim for a higher success rate at NFE 5 & M3 \\
     M6 & \textit{(optional)} Extension & Part- or language-conditioned
       generation~\cite{lundell2023constrained}, or QDGset~\cite{huber2024qdgset} as additional training data &
       Defined upon selection & M3 \\

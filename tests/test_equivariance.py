@@ -1,6 +1,6 @@
 """SO(3)-equivariance of the EquiGraspFlow networks, checked in float64.
 
-This is the check M3 requires for GMF-SG ("equivariance to machine precision"),
+This is the check M3 requires for GMF-SG ("equivariance within a specified numerical tolerance"),
 run here on the reference encoder and vector field.
 """
 
