@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.15)  29 OCT 2026 22:18
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.15)  5 NOV 2026 12:01
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -424,58 +424,64 @@ Underfull \hbox (badness 3098) in paragraph at lines 48--53
  []
 
 
-Underfull \hbox (badness 3250) in paragraph at lines 83--83
+LaTeX Warning: Citation `lipman2023flowmatching' undefined on input line 57.
+
+
+LaTeX Warning: Citation `chen2024riemannianfm' undefined on input line 57.
+
+
+Underfull \hbox (badness 3250) in paragraph at lines 86--86
 []|\T1/ptm/m/n/8 EquiGraspFlow base-
  []
 
 
-Underfull \hbox (badness 1571) in paragraph at lines 83--83
+Underfull \hbox (badness 1571) in paragraph at lines 86--86
 []|\T1/ptm/m/n/8 Two-time con-di-tion-ing, bound-ary and semi-group
  []
 
 
-LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 83.
+LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 86.
 
 
-LaTeX Warning: Citation `lundell2023constrained' on page 1 undefined on input line 83.
+LaTeX Warning: Citation `lundell2023constrained' on page 1 undefined on input line 86.
 
 
-LaTeX Warning: Citation `huber2024qdgset' on page 1 undefined on input line 83.
+LaTeX Warning: Citation `huber2024qdgset' on page 1 undefined on input line 86.
 
 
-Underfull \hbox (badness 1521) in paragraph at lines 83--83
+Underfull \hbox (badness 1521) in paragraph at lines 86--86
 []|\T1/ptm/m/n/8 Part- or language-conditioned gen-er-a-tion [\T1/ptm/b/n/8 ?\T1/ptm/m/n/8 ], or
  []
 
 
-LaTeX Warning: Citation `lim2024equigraspflow' on page 1 undefined on input line 88.
+LaTeX Warning: Citation `lim2024equigraspflow' on page 1 undefined on input line 91.
 
 
-LaTeX Warning: Citation `lipman2023flowmatching' on page 1 undefined on input line 90.
+LaTeX Warning: Citation `lipman2023flowmatching' on page 1 undefined on input line 93.
 
 
-LaTeX Warning: Citation `chen2024riemannianfm' on page 1 undefined on input line 90.
+LaTeX Warning: Citation `chen2024riemannianfm' on page 1 undefined on input line 93.
 
 
-LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 98.
+LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 101.
 
 
-LaTeX Warning: Citation `eppner2021acronym' on page 1 undefined on input line 109.
-
-
-LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 123.
+LaTeX Warning: Citation `eppner2021acronym' on page 1 undefined on input line 112.
 
 
 LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 126.
 
 
-LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 131.
+LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 129.
 
 
-LaTeX Warning: Citation `lundell2023constrained' on page 1 undefined on input line 132.
+LaTeX Warning: Citation `kwon2026graspmeanflow' on page 1 undefined on input line 134.
 
 
-LaTeX Warning: Citation `huber2024qdgset' on page 1 undefined on input line 133.
+LaTeX Warning: Citation `lundell2023constrained' on page 1 undefined on input line 135.
+
+
+LaTeX Warning: Citation `huber2024qdgset' on page 1 undefined on input line 136.
 
 [1{C:/Users/awars/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/base/8r.enc}
 
@@ -516,7 +522,7 @@ Here is how much of TeX's memory you used:
  1141 hyphenation exceptions out of 8191
  75i,12n,79p,269b,445s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi10.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi7.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi8.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr10.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr7.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy9.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msam10.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmb8a.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmr8a.pfb><C:/Users/awars/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmri8a.pfb>
-Output written on proposal.pdf (2 pages, 152734 bytes).
+Output written on proposal.pdf (2 pages, 152725 bytes).
 PDF statistics:
  103 PDF objects out of 1000 (max. 8388607)
  7 named destinations out of 1000 (max. 500000)
