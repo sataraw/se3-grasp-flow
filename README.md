@@ -23,8 +23,13 @@ src/graspgen/            our package
   paths.py               data / checkpoint / results locations (GRASPGEN_DATA overrides data/)
   egf.py                 adapter that makes the EquiGraspFlow reference code importable
 third_party/EquiGraspFlow/  reference implementation, git submodule, never edited
+scripts/                 lightweight scripts for training and evaluation of EquiGraspFlow 
 tests/                   data-free smoke tests (env, adapter, equivariance, Lie, MuJoCo)
 latex/                   IEEEtran documents built with latexmk (proposal/, later report/)
 docs/                    proposal and project documentation
 data/                    datasets and checkpoints (not in git)
 ```
+
+To download the data: 
+- [EquiGraspFlow Model](https://drive.google.com/drive/folders/1H-MXRVcTekdEfzXU_suSw7Afi-7o8I39)
+- [ACRONYM Dataset](https://drive.google.com/drive/folders/1H1PeUbyxvNtzoWc6Le2pKqOqp2WLSnau)
