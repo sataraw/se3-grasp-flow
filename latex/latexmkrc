@@ -3,7 +3,7 @@
 #                              latexmk -c         (remove build files)
 # PDFs land in <document>/build/.
 
-@default_files = ('proposal/proposal.tex');
+@default_files = ('proposal/proposal.tex', 'm1/m1.tex');
 
 $pdf_mode = 1;
 $do_cd = 1;          # run inside each document's folder

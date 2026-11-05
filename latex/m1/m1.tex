@@ -1,0 +1,116 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\SO}{\mathrm{SO}(3)}
+\newcommand{\SE}{\mathrm{SE}(3)}
+
+\begin{document}
+
+\title{M1: EquiGraspFlow Baseline\\[0.3em]
+  {\normalsize Milestone report $\cdot$ ADLR WS 2026/27, project idea 4}}
+
+\author{
+  \IEEEauthorblockN{Georgii Fatakhov}
+  \IEEEauthorblockA{Technical University of Munich}
+  \and
+  \IEEEauthorblockN{Awar Satar}
+  \IEEEauthorblockA{Technical University of Munich}
+}
+
+\maketitle
+
+\section{Goal and Setup}
+
+M1 establishes the flow-matching baseline: evaluate the released EquiGraspFlow~\cite{lim2024equigraspflow}
+checkpoints, then train our own model, whose EMD should be close to the published value and to the
+released checkpoint. All runs use the unmodified reference code.
+
+\textbf{Data.} ACRONYM~\cite{eppner2021acronym} subset released with EquiGraspFlow: Laptop, Mug, Bowl and
+Pencil, with $105/35/35$, $54/18/22$, $21/7/10$ and $50/16/16$ objects for train/val/test and one model
+for all categories. All 449 grasp files and meshes load. The full point cloud has 1024 points sampled on the mesh, the partial one 512
+points visible from one viewpoint.
+
+\textbf{Protocol.} Each test object is presented in 3 evenly spaced rotations (partial: $\times\,3$
+viewpoints), giving 249 (partial: 747) test cases. Sampling uses the 4th-order Runge--Kutta--Munthe-Kaas
+solver on $\SE$ with 20 steps, i.e.\ 80 evaluations of the guided vector field, each running the network
+twice for classifier-free guidance.
+
+\textbf{Metric.} For one test case the model generates as many grasps as the object has ground-truth
+grasps (about 1.1--1.9k). The EMD is the mean pair distance $\sqrt{\theta^2 + \lVert \Delta p \rVert^2}$
+under the optimal one-to-one assignment, with $\theta$ the relative rotation angle in rad and $\Delta p$
+the translation difference in m. It is averaged over the test cases of each category.
+
+\section{Results}
+
+Table~\ref{tab:emd} compares the released checkpoints with the paper. All categories agree within
+$0.003$ except Mug with full point clouds ($+0.014$); a different random stream changes a category mean
+by about $0.005$. The full test set takes 248\,s (partial: 500\,s) on an RTX 5070 Ti.
+
+\begin{table}[!t]
+  \centering
+  \caption{Test EMD (lower is better). Paper: SO(3)-aug rows of Tables 1a and 5a in~\cite{lim2024equigraspflow}.}
+  \label{tab:emd}
+  \begin{tabular}{@{}llcccc@{}}
+    \toprule
+    Point cloud & Model & Laptop & Mug & Bowl & Pencil \\
+    \midrule
+    full & Paper & 0.342 & 0.483 & 0.313 & 0.287 \\
+    full & Released ckpt. & 0.340 & 0.497 & 0.314 & 0.286 \\
+    full & Own training & \multicolumn{4}{c}{pending} \\
+    \midrule
+    partial & Paper & 0.303 & 0.409 & 0.268 & 0.265 \\
+    partial & Released ckpt. & 0.301 & 0.412 & 0.267 & 0.263 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!t]
+  \centering
+  \caption{EMD reference floor: two random halves of the ground-truth grasps, and model samples against
+  one half (full point cloud, released checkpoint, half the grasps per side).}
+  \label{tab:floor}
+  \begin{tabular}{@{}lcccc@{}}
+    \toprule
+    & Laptop & Mug & Bowl & Pencil \\
+    \midrule
+    Ground truth vs.\ ground truth & 0.253 & 0.298 & 0.222 & 0.262 \\
+    Model vs.\ ground truth & 0.368 & 0.545 & 0.337 & 0.326 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Interpreting the EMD.} The EMD has no zero point in practice: two finite samples of the same grasp
+distribution are already far apart, as Table~\ref{tab:floor} shows. The distance is dominated by
+rotation, and grasps that differ by the $180^\circ$ symmetry of the gripper count as $\pi$ apart. The
+model is closest to the floor on Pencil, Bowl and Laptop; Mug shows the largest gap, consistent with it
+having the highest EMD in the paper. EMD values are therefore compared with each other at equal sample
+size rather than read as absolute quality; physical success is measured in MuJoCo in M2.
+
+\section{Deviations and Notes}
+
+\begin{itemize}
+  \item The released configs use weight decay $10^{-6}$, the paper text states $10^{-5}$; we follow the
+  configs. The partial config uses guidance $1.5$, the paper states $2$.
+  \item On Windows the data loader must run without worker processes, since the dataset holds open3d
+  meshes that cannot be pickled.
+  \item Training with the stock config (40{,}000 epochs, about 2.3M iterations) takes about 0.21\,s per
+  iteration locally, roughly 5.5 days. The released full checkpoint reached its best validation loss at
+  iteration 700k.\end{itemize}
+
+\section{Next Steps}
+
+Train our own full-point-cloud model and evaluate it with the same protocol to complete
+Table~\ref{tab:emd}. The evaluation also accepts other samplers and step counts, as needed for the NFE
+sweeps of M2 and M3~\cite{kwon2026graspmeanflow}.
+
+\bibliographystyle{IEEEtran}
+\bibliography{adlr}
+
+\end{document}
