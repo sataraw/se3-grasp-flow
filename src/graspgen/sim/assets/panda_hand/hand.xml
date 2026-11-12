@@ -1,0 +1,84 @@
+<!-- Floating Franka Panda hand on a vertical lift axis, for the grasp evaluation.
+
+     Geometry, inertias and the finger coupling follow franka_emika_panda/hand.xml of MuJoCo Menagerie
+     (collision geoms only). Loaded by graspgen/sim/gripper.py, which overwrites the values marked
+     "GripperConfig" below; the numbers written here are its defaults, so that this file can also be
+     opened on its own:  python -m mujoco.viewer -mjcf=hand.xml  (use mjpython on macOS) -->
+<mujoco model="grasp_eval">
+  <compiler angle="radian" autolimits="true"/>
+  <!-- The elliptic cone and impratio > 1 keep grasped objects from creeping out of the fingers.
+       Gravity is off: the object floats while the fingers close, the evaluation switches it on.
+       timestep: SimConfig -->
+  <option timestep="0.002" integrator="implicitfast" cone="elliptic" impratio="10" gravity="0 0 0"/>
+
+  <default>
+    <!-- Gripper geoms collide with object geoms only (object: contype 0, conaffinity 1).
+         friction[0]: GripperConfig -->
+    <default class="gripper">
+      <geom contype="1" conaffinity="0" condim="4" friction="1 0.005 0.0001" group="3"/>
+      <default class="pad">
+        <geom type="box"/>
+      </default>
+    </default>
+    <default class="finger">
+      <!-- damping: GripperConfig (grip_force / close_speed) -->
+      <joint type="slide" axis="0 1 0" range="0 0.04" armature="0.1" damping="400"/>
+      <!-- The control range reaches beyond the closed position (0), so that the actuator stays
+           saturated, i.e. squeezes with the full grip force, on thin objects too.
+           kp, forcerange: GripperConfig -->
+      <position kp="8000" ctrlrange="-0.01 0.04" forcerange="-40 40"/>
+    </default>
+  </default>
+
+  <asset>
+    <mesh name="hand_c" file="hand.stl"/>
+    <mesh name="finger_0" file="finger_0.obj"/>
+  </asset>
+
+  <worldbody>
+    <body name="lift">
+      <inertial mass="0.1" pos="0 0 0" diaginertia="1e-4 1e-4 1e-4"/>
+      <joint name="lift" type="slide" axis="0 0 1"/>
+      <!-- The pose of the hand on the lift body is set to the grasp pose for every grasp. -->
+      <body name="hand" childclass="gripper">
+        <inertial mass="0.73" pos="-0.01 0 0.03" diaginertia="0.001 0.0025 0.0017"/>
+        <geom name="hand" type="mesh" mesh="hand_c"/>
+        <!-- Volume swept by the fingertip pads; not a collider, used for the contact check. -->
+        <geom name="closing_region" type="box" pos="0 0 0.1029" size="0.0085 0.04 0.0085"
+              contype="0" conaffinity="0" group="4" rgba="0 1 0 0.2"/>
+        <body name="left_finger" pos="0 0 0.0584">
+          <inertial mass="0.015" pos="0 0 0" diaginertia="2.375e-6 2.375e-6 7.5e-7"/>
+          <joint name="finger_joint1" class="finger"/>
+          <geom type="mesh" mesh="finger_0"/>
+          <geom class="pad" size="0.0085 0.004 0.0085" pos="0 0.0055 0.0445"/>
+          <geom class="pad" size="0.003 0.002 0.003" pos="0.0055 0.002 0.05"/>
+          <geom class="pad" size="0.003 0.002 0.003" pos="-0.0055 0.002 0.05"/>
+          <geom class="pad" size="0.003 0.002 0.0035" pos="0.0055 0.002 0.0395"/>
+          <geom class="pad" size="0.003 0.002 0.0035" pos="-0.0055 0.002 0.0395"/>
+        </body>
+        <body name="right_finger" pos="0 0 0.0584" quat="0 0 0 1">
+          <inertial mass="0.015" pos="0 0 0" diaginertia="2.375e-6 2.375e-6 7.5e-7"/>
+          <joint name="finger_joint2" class="finger"/>
+          <geom type="mesh" mesh="finger_0"/>
+          <geom class="pad" size="0.0085 0.004 0.0085" pos="0 0.0055 0.0445"/>
+          <geom class="pad" size="0.003 0.002 0.003" pos="0.0055 0.002 0.05"/>
+          <geom class="pad" size="0.003 0.002 0.003" pos="-0.0055 0.002 0.05"/>
+          <geom class="pad" size="0.003 0.002 0.0035" pos="0.0055 0.002 0.0395"/>
+          <geom class="pad" size="0.003 0.002 0.0035" pos="-0.0055 0.002 0.0395"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <equality>
+    <!-- The two fingers of the Panda hand are mechanically coupled. -->
+    <joint joint1="finger_joint1" joint2="finger_joint2" solimp="0.95 0.99 0.001" solref="0.005 1"/>
+  </equality>
+
+  <actuator>
+    <!-- kp, kv: GripperConfig (kv critically damps the lift axis) -->
+    <position name="lift" joint="lift" kp="20000" kv="282.84"/>
+    <position name="finger1" joint="finger_joint1" class="finger"/>
+    <position name="finger2" joint="finger_joint2" class="finger"/>
+  </actuator>
+</mujoco>

@@ -70,7 +70,28 @@ Known numerical limit: their `log_SO3` regularizes with `EPS = 1e-4` and is accu
 2.5 rad and ~1e-3 rad at 3 rad (see `tests/test_lie.py`). Relevant for anything built on log, such as the
 GMF-SG semigroup loss.
 
-## 5. LaTeX
+## 5. MuJoCo evaluation
+
+`graspgen.sim` evaluates grasps physically; `scripts/eval_mujoco.py` runs it on the test split.
+
+```bash
+uv run python scripts/eval_mujoco.py --source gt random                       # calibration
+uv run python scripts/eval_mujoco.py --solver SE3_Euler --steps 1 2 5 10 20   # NFE sweep
+```
+
+- **Gripper**: Franka Panda hand with the collision geometry of MuJoCo Menagerie (two small meshes are
+  vendored in `src/graspgen/sim/assets/panda_hand/`), rigidly mounted on a vertical lift axis, 40 N per finger.
+- **Object**: free body made of the convex parts of a CoACD decomposition (cached in `data/cache/coacd`), with
+  the mass and friction stored in the ACRONYM grasp file.
+- **Per grasp**: collision check of the open hand, contact check (object between the fingers), then close
+  without gravity, switch gravity on, lift 15 cm, hold 1 s. Success: both fingers still touch the object and
+  it has followed the hand. Colliding grasps count as failures.
+- **Frames**: grasp poses are ACRONYM hand poses (z approach, x closing axis) in metres, in the frame of the
+  test case (origin at the point-cloud centroid). The reference dataset is scaled by 8; the script converts.
+
+Results go to `results/mujoco/`; the output files and metrics are described in the script's docstring.
+
+## 6. LaTeX
 
 ```bash
 cd latex

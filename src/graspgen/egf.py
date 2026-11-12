@@ -39,6 +39,7 @@ loaders.utils.DATASET_DIR = str(DATASET_DIR)
 # Re-exports (grouped by the reference module they come from)
 from loaders import get_dataloader, get_dataset  # noqa: E402
 from loaders.acronym import AcronymFullPointCloud, AcronymPartialPointCloud  # noqa: E402
+from loaders.utils import load_grasp_poses, load_mesh  # noqa: E402
 from losses import get_losses  # noqa: E402
 from losses.mse_loss import MSELoss  # noqa: E402
 from metrics import get_metrics  # noqa: E402
@@ -115,6 +116,8 @@ __all__ = [
     "inv_SO3",
     "is_SE3",
     "load_config",
+    "load_grasp_poses",
+    "load_mesh",
     "log_SO3",
     "super_fibonacci_spiral",
 ]
