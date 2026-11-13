@@ -13,16 +13,25 @@
 
   <default>
     <!-- Gripper geoms collide with object geoms only (object: contype 0, conaffinity 1).
+         solref/solimp: MuJoCo's default contacts are soft, and their stiffness scales with the mass
+         of the lighter body. With the defaults the fingers squeeze through an object of a few grams
+         by more than a centimetre and eject it. These values keep the penetration well below a
+         millimetre; the object geoms get the same ones (graspgen/sim/lift.py).
          friction[0]: GripperConfig -->
     <default class="gripper">
-      <geom contype="1" conaffinity="0" condim="4" friction="1 0.005 0.0001" group="3"/>
+      <geom contype="1" conaffinity="0" condim="4" friction="1 0.005 0.0001" group="3"
+            solref="0.004 1" solimp="0.99 0.999 0.001"/>
       <default class="pad">
         <geom type="box"/>
       </default>
     </default>
     <default class="finger">
-      <!-- damping: GripperConfig (grip_force / close_speed) -->
-      <joint type="slide" axis="0 1 0" range="0 0.04" armature="0.1" damping="400"/>
+      <!-- Stiff limits for the same reason as the contacts: the closed position must stop the full
+           grip force.
+           damping: GripperConfig (grip_force / close_speed)
+           armature: GripperConfig (damping * FINGER_TIME_CONSTANT), see graspgen/sim/gripper.py -->
+      <joint type="slide" axis="0 1 0" range="0 0.04" armature="2" damping="400"
+             solreflimit="0.004 1" solimplimit="0.99 0.999 0.001"/>
       <!-- The control range reaches beyond the closed position (0), so that the actuator stays
            saturated, i.e. squeezes with the full grip force, on thin objects too.
            kp, forcerange: GripperConfig -->

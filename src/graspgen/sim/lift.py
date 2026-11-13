@@ -57,6 +57,7 @@ class GraspSim:
         density = mass / sum(volume for _, volume in hulls)
 
         spec = gripper_spec(self.cfg.gripper, self.cfg.timestep)
+        hand = spec.geom("hand")  # the object gets the gripper's (stiff) contact parameters
         body = spec.worldbody.add_body(name="object")
         body.add_freejoint()
         for i, (vertices, _) in enumerate(hulls):
@@ -68,6 +69,8 @@ class GraspSim:
                 density=density,
                 friction=[friction, 0.005, 0.0001],
                 condim=4,
+                solref=hand.solref,
+                solimp=hand.solimp,
                 contype=0,
                 conaffinity=1,
             )

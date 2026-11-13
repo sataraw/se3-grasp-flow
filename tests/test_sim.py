@@ -116,7 +116,7 @@ def test_hand_xml_holds_the_defaults():
     configured = gripper_spec(GripperConfig(), SimConfig().timestep).compile()
 
     assert from_file.opt.timestep == configured.opt.timestep
-    for field in ("dof_damping", "geom_friction", "actuator_gainprm", "actuator_forcerange"):
+    for field in ("dof_damping", "dof_armature", "geom_friction", "actuator_gainprm", "actuator_forcerange"):
         np.testing.assert_allclose(getattr(from_file, field), getattr(configured, field))
     np.testing.assert_allclose(from_file.actuator_biasprm, configured.actuator_biasprm, rtol=1e-4)
 
@@ -127,3 +127,24 @@ def test_decomposition_failure_is_reported(tmp_path):
     with pytest.raises(RuntimeError, match="broken-mesh"):
         decompose(vertices, np.array([[0, 1, 2]]), cache_dir=tmp_path, name="broken-mesh")
     assert not list(tmp_path.glob("*.npz"))
+
+
+def test_light_object_is_not_squeezed_through():
+    """8 g rod, 2 cm thick: the 40 N fingers must stop at its surface and hold it steadily.
+
+    With MuJoCo's default (soft, mass-scaled) contacts they went through it and ejected it.
+    """
+    rod = trimesh.creation.cylinder(radius=0.01, height=0.18, sections=12)  # along z
+    sim = GraspSim([rod.vertices], mass=150.0 * rod.volume)
+    side_grasp = np.eye(4)
+    side_grasp[:3, :3] = [[0, 0, -1], [1, 0, 0], [0, -1, 0]]  # closing along y, approach along -x
+    side_grasp[:3, 3] = [PAD_DEPTH, 0, 0]
+
+    sim.reset(side_grasp)
+    sim.data.ctrl[sim._finger_ctrl] = sim.model.actuator_ctrlrange[sim._finger_ctrl, 0]
+    mujoco.mj_step(sim.model, sim.data, 400)
+    assert np.all(sim.data.qpos[sim._finger_qpos] > 0.009)  # stopped at the surface of the 12-sided rod
+    assert sim.penetration() < 5e-4
+    assert sim.fingers_touching() == 2
+
+    assert evaluate(sim, side_grasp)["success"]

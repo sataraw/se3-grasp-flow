@@ -25,6 +25,10 @@ import numpy as np
 ASSET_DIR = Path(__file__).parent / "assets" / "panda_hand"
 
 FINGER_OPEN = 0.04  # joint position of one finger when fully open [m]; the opening width is twice that
+# Time a finger takes to reach its closing speed [s], set through the joint armature. It has to span a
+# few simulation steps: a finger that reaches full speed within one step overshoots into the object
+# and is thrown back out by the contact, so that it chatters instead of pressing steadily.
+FINGER_TIME_CONSTANT = 0.005
 
 # Rotation by +90 deg about z: maps the hand's opening axis (y) onto ACRONYM's (x).
 T_HAND_FROM_GRASP = np.array(
@@ -61,7 +65,9 @@ def gripper_spec(cfg: GripperConfig, timestep: float) -> mujoco.MjSpec:
     # closing speed. The gain saturates the actuator from 5 mm of position error on.
     finger_kp = cfg.grip_force / 0.005
     for joint, actuator in [("finger_joint1", "finger1"), ("finger_joint2", "finger2")]:
-        spec.joint(joint).damping[0] = cfg.grip_force / cfg.close_speed
+        damping = cfg.grip_force / cfg.close_speed
+        spec.joint(joint).damping[0] = damping
+        spec.joint(joint).armature = damping * FINGER_TIME_CONSTANT
         _set_position_gains(spec.actuator(actuator), kp=finger_kp)
         spec.actuator(actuator).forcerange = [-cfg.grip_force, cfg.grip_force]
 
