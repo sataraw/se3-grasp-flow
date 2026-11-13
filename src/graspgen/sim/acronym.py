@@ -62,7 +62,11 @@ def load_test_cases(
                 friction = float(data["object/friction"][()])
             vertices = np.asarray(mesh.vertices)
             parts = decompose(
-                vertices, np.asarray(mesh.triangles), threshold=coacd_threshold, cache_dir=CACHE_DIR / "coacd"
+                vertices,
+                np.asarray(mesh.triangles),
+                threshold=coacd_threshold,
+                cache_dir=CACHE_DIR / "coacd",
+                name=f"{category}/{filename}",
             )
 
             for k, R in enumerate(dataset.Rs):

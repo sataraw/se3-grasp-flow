@@ -119,3 +119,11 @@ def test_hand_xml_holds_the_defaults():
     for field in ("dof_damping", "geom_friction", "actuator_gainprm", "actuator_forcerange"):
         np.testing.assert_allclose(getattr(from_file, field), getattr(configured, field))
     np.testing.assert_allclose(from_file.actuator_biasprm, configured.actuator_biasprm, rtol=1e-4)
+
+
+def test_decomposition_failure_is_reported(tmp_path):
+    """A mesh CoACD cannot process raises an error that names it, instead of killing the process."""
+    vertices = np.zeros((3, 3))
+    with pytest.raises(RuntimeError, match="broken-mesh"):
+        decompose(vertices, np.array([[0, 1, 2]]), cache_dir=tmp_path, name="broken-mesh")
+    assert not list(tmp_path.glob("*.npz"))

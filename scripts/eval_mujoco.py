@@ -38,6 +38,7 @@ The first run decomposes the test meshes into convex parts (cached in data/cache
 import argparse
 import copy
 import dataclasses
+import faulthandler
 import json
 import multiprocessing
 import os
@@ -166,6 +167,7 @@ def summarize(cases: list[GraspCase], results: list[dict]) -> tuple[dict, pd.Dat
 
 
 def main():
+    faulthandler.enable()  # a crash in native code (MuJoCo, open3d, torch) still prints where it happened
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--source", nargs="+", choices=["gt", "random", "egf"], default=["egf"])
     parser.add_argument(
