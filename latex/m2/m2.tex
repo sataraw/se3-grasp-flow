@@ -31,82 +31,79 @@
 
 M2 checks generated grasps physically in MuJoCo~\cite{todorov2012mujoco}. The completion criterion,
 ground-truth grasps succeed at ${\gtrsim}\,90\,\%$, random grasps at ${\approx}\,0\,\%$, and
-EquiGraspFlow~\cite{lim2024equigraspflow} is evaluated across all NFE, is met. The test cases are those of
-the EMD evaluation in M1: 83 ACRONYM~\cite{eppner2021acronym} test objects in 3 rotations (249 cases),
-full point clouds, 100 grasps per case.
+EquiGraspFlow~\cite{lim2024equigraspflow} is evaluated across all NFE, is met. Test cases as in M1's EMD
+evaluation: 83 ACRONYM~\cite{eppner2021acronym} test objects in 3 rotations (249 cases), full point clouds,
+100 grasps per case.
 
 \section{Approach}
 
 \textbf{Simulation.} A floating Franka Panda hand (MuJoCo Menagerie
 geometry~\cite{zakka2022menagerie}) on a vertical, position-controlled lift axis, 40\,N per finger,
-stiff contacts so that light objects are not squeezed through, finger--object friction 0.3. The object is
-a free body made of the convex parts of a CoACD~\cite{wei2022coacd} decomposition, which keeps the
-cavities of mugs and bowls, with ACRONYM's mass.
+stiff contacts, finger--object friction 0.3. The object is a free body made of the convex parts of a
+CoACD~\cite{wei2022coacd} decomposition, which keeps the cavities of mugs and bowls, with ACRONYM's mass.
 
 \textbf{Protocol and metrics.} The open hand is placed at the grasp pose. A \emph{collision} is a
 penetration of the object by more than 1\,mm; \emph{contact} means the object reaches into the volume
 swept by the fingertip pads. Grasps with contact and no collision are simulated: close without gravity,
 switch gravity on, lift by 15\,cm in 1\,s, hold for 1\,s. \emph{Success} means both fingers still touch
-the object and it has risen by more than half the lift height; colliding grasps fail. Rates are fractions
-of all grasps. An optional shake before the hold is off (Appendix~\ref{app:shake}).
+the object and it has risen by more than half the lift height; colliding grasps fail. An optional shake
+is off (Appendix~\ref{app:shake}).
 
-\textbf{Calibration.} ACRONYM labels grasps in the FleX simulator with friction~1, at which our test
-passed most ACRONYM-labelled failures. Choosing the friction against these labels on 8 objects, with a
-rule fixed in advance, gave 0.3. On 12 held-out objects it passes 96.2\,\% of labelled successes and
-34.8\,\% of labelled failures (friction~1: 99.6\,\%, 63.7\,\%; Appendix).
+\textbf{Calibration.} ACRONYM labels grasps in the FleX simulator with friction~1, where our test passed
+most labelled failures. Calibrated against these labels (8 objects, rule fixed in advance), friction 0.3
+passes 96.2\,\% of labelled successes and 34.8\,\% of labelled failures on 12 held-out objects
+(friction~1: 99.6\,\%, 63.7\,\%; Appendix).
 
 \textbf{Grasps} are random successful ACRONYM grasps (ground truth), samples of the model prior
 (random), or EquiGraspFlow samples from the released checkpoint with 1--20 Euler steps or the default
-Runge--Kutta--Munthe-Kaas sampler (RK4-MK, 20 steps). NFE counts evaluations of the guided vector field
-(two network passes each), as in M1.
+Runge--Kutta--Munthe-Kaas sampler (RK4-MK, 20 steps). NFE counts guided vector-field evaluations.
 
 \begin{table}[!t]
   \centering
-  \caption{Full test split, in \%. Success at friction 0.3 (default) and 1 (separate run), other columns
-  from the 0.3 run; latency: median ms per grasp, RTX 5070 Ti.}
+  \caption{Full test split, in \%. Success at friction 0.3 and 1 (separate run), rest at 0.3.
+  Latency: median ms/grasp, RTX 5070 Ti.}
   \label{tab:results}
   \begin{tabular}{@{}lrrrrrr@{}}
     \toprule
     Grasps & NFE & Succ.\,0.3 & Succ.\,1 & Coll. & Contact & Latency \\
     \midrule
-    Ground truth & -- & GT03 & GT10 & 0.0 & 100.0 & -- \\
-    Random & -- & RA03 & RA10 & RACOL & RACON & -- \\
+    Ground truth & -- & 94.1 & 98.9 & 0.0 & 100.0 & -- \\
+    Random & -- & 0.1 & 0.1 & 22.1 & 5.5 & -- \\
     \midrule
-    Euler & 1 & E1S & E1R & E1C & E1N & E1L \\
-    Euler & 2 & E2S & E2R & E2C & E2N & E2L \\
-    Euler & 5 & E5S & E5R & E5C & E5N & E5L \\
-    Euler & 10 & E10S & E10R & E10C & E10N & E10L \\
-    Euler & 20 & E20S & E20R & E20C & E20N & E20L \\
-    RK4-MK & 80 & RKS & RKR & RKC & RKN & RKL \\
+    Euler & 1 & 0.3 & 0.5 & 56.8 & 20.0 & 38 \\
+    Euler & 2 & 9.5 & 10.9 & 63.4 & 52.1 & 48 \\
+    Euler & 5 & 57.1 & 62.8 & 27.7 & 91.3 & 54 \\
+    Euler & 10 & 90.5 & 93.8 & 4.8 & 99.6 & 73 \\
+    Euler & 20 & 93.0 & 96.2 & 2.9 & 99.6 & 116 \\
+    RK4-MK & 80 & 93.1 & 95.1 & 2.2 & 100.0 & 391 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \section{Results}
 
-Ground truth succeeds at 96.0\,\%, random grasps at 0.0\,\%, mostly because the object is rarely between
-the fingers (Table~\ref{tab:results}). EquiGraspFlow fails at NFE~1--2, where most grasps collide or miss,
-reaches 93.7\,\% at NFE~10 and 96\,\% at NFE~20 and 80; the gap to ground truth is mostly Mug (90.0\,\% at
-NFE~80). Friction 0.3 lowers all success rates by 1--3 points and leaves the ordering unchanged. The
-friction-1 run agrees with an earlier one on another machine within 0.3 points.
+Ground truth succeeds at 94.1\,\%, random grasps at 0.1\,\% as they rarely reach the object
+(Table~\ref{tab:results}). EquiGraspFlow fails at NFE~1--2, where most grasps collide or miss,
+reaches 90.5\,\% at NFE~10 and 93\,\% at NFE~20 and 80, within 1.1 points of ground truth (gap: Mugs,
+Pencils). Friction~1 raises ground truth by 4.8 points and EquiGraspFlow at NFE~${\ge}\,10$ by
+2.0--3.3 (same ordering); it agrees with an earlier run on an NVIDIA L4 within 1.3 points.
 
 \section{Limitations}
 
-\textbf{Residual leniency.} 34.8\,\% of held-out labelled failures still pass (Pencils: 52.7\,\%). Part
-is likely irreducible: ACRONYM's gravity-free labels match labels with gravity only with 91\,\% precision
-and 93\,\% recall~\cite{eppner2021acronym}.
+\textbf{Residual leniency.} 34.8\,\% of held-out labelled failures pass (Pencils: 52.7\,\%); some is
+irreducible, as ACRONYM's gravity-free labels match gravity labels to only 91\,\% precision and 93\,\%
+recall~\cite{eppner2021acronym}.
 
-\textbf{Calibration, not physics.} Friction 0.3 fits another simulator's labels on 8 objects; a 1\,ms
-time step shifts the rates by up to 2 points. Rates are not comparable with the paper's (Isaac Gym,
-shaking gripper).
+\textbf{Calibration, not physics.} Friction 0.3 fits another simulator's labels on 8 objects;
+full-split ground truth (94.1\,\%) is below the rule's 95\,\% floor. Halving the time step shifts
+rates by about 2 points. Not comparable with EquiGraspFlow's Isaac Gym rates.
 
-\textbf{Reproducibility.} Open3D's unseeded point-cloud sampling varies test cases and model samples
-between runs, so the two runs in Table~\ref{tab:results} are not paired (paired:
-Appendix~\ref{app:effect}); seeding fixes this. It also affects M1's EMD.
+\textbf{Reproducibility.} Unseeded Open3D sampling varies test cases and samples between runs, so
+Table~\ref{tab:results}'s runs are not paired (paired: Appendix~\ref{app:effect}); it also affects M1's EMD.
 
 \section{Next Steps}
 
-Seed Open3D; evaluate M3 with this protocol, reporting friction 1 alongside.
+Seed Open3D; evaluate M3 at friction 0.3 and 1.
 
 \bibliographystyle{IEEEtran}
 \bibliography{adlr}
@@ -233,7 +230,9 @@ costs labelled successes (held-out Bowls 0.954$\to$0.830), and adds up to 60\,\%
 On the same random and EquiGraspFlow grasps (all 20 objects, paired; Table~\ref{tab:effect}), collision
 and contact are unchanged by construction. Friction 0.3 lowers the success of labelled successes by
 3.4 points but that of EquiGraspFlow grasps at NFE~10--80 by only 0.5--1.5 points (NFE~5: 4.2); the
-ordering across NFE is unchanged.
+ordering across NFE is unchanged. On the full test split (Table~\ref{tab:results}, unpaired runs) the drops
+are larger, 4.8 points for ground truth and 2.0--3.3 for EquiGraspFlow at NFE~10--80, with the same
+pattern.
 
 \begin{table}[!h]
   \centering
