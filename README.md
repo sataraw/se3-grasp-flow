@@ -22,8 +22,10 @@ Details (installation, data, LaTeX build, conventions): [docs/setup.md](docs/set
 src/graspgen/            our package
   paths.py               data / checkpoint / results locations (GRASPGEN_DATA overrides data/)
   egf.py                 adapter that makes the EquiGraspFlow reference code importable
+  sim/                   MuJoCo evaluation: Panda hand, convex decomposition, lift-and-hold test
 third_party/EquiGraspFlow/  reference implementation, git submodule, never edited
-scripts/                 lightweight scripts for training and evaluation of EquiGraspFlow 
+scripts/                 training and evaluation of EquiGraspFlow (EMD: eval_egf.py, MuJoCo: eval_mujoco.py)
+notebooks/               m2_colab.ipynb: MuJoCo evaluation on Google Colab
 tests/                   data-free smoke tests (env, adapter, equivariance, Lie, MuJoCo)
 latex/                   IEEEtran documents built with latexmk (proposal/, later report/)
 docs/                    proposal and project documentation

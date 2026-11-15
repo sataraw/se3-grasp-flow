@@ -1,0 +1,309 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\SO}{\mathrm{SO}(3)}
+\newcommand{\SE}{\mathrm{SE}(3)}
+
+\begin{document}
+
+\title{M2: Grasp Evaluation in MuJoCo\\[0.3em]
+  {\normalsize Milestone report $\cdot$ ADLR WS 2026/27, project idea 4}}
+
+\author{
+  \IEEEauthorblockN{Georgii Fatakhov}
+  \IEEEauthorblockA{Technical University of Munich}
+  \and
+  \IEEEauthorblockN{Awar Satar}
+  \IEEEauthorblockA{Technical University of Munich}
+}
+
+\maketitle
+
+\section{Goal and Setup}
+
+M2 checks generated grasps physically in MuJoCo~\cite{todorov2012mujoco}. The completion criterion,
+ground-truth grasps succeed at ${\gtrsim}\,90\,\%$, random grasps at ${\approx}\,0\,\%$, and
+EquiGraspFlow~\cite{lim2024equigraspflow} is evaluated across all NFE, is met. Test cases as in M1's EMD
+evaluation: 83 ACRONYM~\cite{eppner2021acronym} test objects in 3 rotations (249 cases), full point clouds,
+100 grasps per case.
+
+\section{Approach}
+
+\textbf{Simulation.} A floating Franka Panda hand (MuJoCo Menagerie
+geometry~\cite{zakka2022menagerie}) on a vertical, position-controlled lift axis, 40\,N per finger,
+stiff contacts, finger--object friction 0.3. The object is a free body made of the convex parts of a
+CoACD~\cite{wei2022coacd} decomposition, which keeps the cavities of mugs and bowls, with ACRONYM's mass.
+
+\textbf{Protocol and metrics.} The open hand is placed at the grasp pose. A \emph{collision} is a
+penetration of the object by more than 1\,mm; \emph{contact} means the object reaches into the volume
+swept by the fingertip pads. Grasps with contact and no collision are simulated: close without gravity,
+switch gravity on, lift by 15\,cm in 1\,s, hold for 1\,s. \emph{Success} means both fingers still touch
+the object and it has risen by more than half the lift height; colliding grasps fail. An optional shake
+is off (Appendix~\ref{app:shake}).
+
+\textbf{Calibration.} ACRONYM labels grasps in the FleX simulator with friction~1, where our test passed
+most labelled failures. Calibrated against these labels (8 objects, rule fixed in advance), friction 0.3
+passes 96.2\,\% of labelled successes and 34.8\,\% of labelled failures on 12 held-out objects
+(friction~1: 99.6\,\%, 63.7\,\%; Appendix).
+
+\textbf{Grasps} are random successful ACRONYM grasps (ground truth), samples of the model prior
+(random), or EquiGraspFlow samples from the released checkpoint with 1--20 Euler steps or the default
+Runge--Kutta--Munthe-Kaas sampler (RK4-MK, 20 steps). NFE counts guided vector-field evaluations.
+
+\begin{table}[!t]
+  \centering
+  \caption{Full test split, in \%. Success at friction 0.3 and 1 (separate run), rest at 0.3.
+  Latency: median ms/grasp, RTX 5070 Ti.}
+  \label{tab:results}
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+    Grasps & NFE & Succ.\,0.3 & Succ.\,1 & Coll. & Contact & Latency \\
+    \midrule
+    Ground truth & -- & 94.1 & 98.9 & 0.0 & 100.0 & -- \\
+    Random & -- & 0.1 & 0.1 & 22.1 & 5.5 & -- \\
+    \midrule
+    Euler & 1 & 0.3 & 0.5 & 56.8 & 20.0 & 38 \\
+    Euler & 2 & 9.5 & 10.9 & 63.4 & 52.1 & 48 \\
+    Euler & 5 & 57.1 & 62.8 & 27.7 & 91.3 & 54 \\
+    Euler & 10 & 90.5 & 93.8 & 4.8 & 99.6 & 73 \\
+    Euler & 20 & 93.0 & 96.2 & 2.9 & 99.6 & 116 \\
+    RK4-MK & 80 & 93.1 & 95.1 & 2.2 & 100.0 & 391 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Results}
+
+Ground truth succeeds at 94.1\,\%, random grasps at 0.1\,\% as they rarely reach the object
+(Table~\ref{tab:results}). EquiGraspFlow fails at NFE~1--2, where most grasps collide or miss,
+reaches 90.5\,\% at NFE~10 and 93\,\% at NFE~20 and 80, within 1.1 points of ground truth (gap: Mugs,
+Pencils). Friction~1 raises ground truth by 4.8 points and EquiGraspFlow at NFE~${\ge}\,10$ by
+2.0--3.3 (same ordering); it agrees with an earlier run on an NVIDIA L4 within 1.3 points.
+
+\section{Limitations}
+
+\textbf{Residual leniency.} 34.8\,\% of held-out labelled failures pass (Pencils: 52.7\,\%); some is
+irreducible, as ACRONYM's gravity-free labels match gravity labels to only 91\,\% precision and 93\,\%
+recall~\cite{eppner2021acronym}.
+
+\textbf{Calibration, not physics.} Friction 0.3 fits another simulator's labels on 8 objects;
+full-split ground truth (94.1\,\%) is below the rule's 95\,\% floor. Halving the time step shifts
+rates by about 2 points. Not comparable with EquiGraspFlow's Isaac Gym rates.
+
+\textbf{Reproducibility.} Unseeded Open3D sampling varies test cases and samples between runs, so
+Table~\ref{tab:results}'s runs are not paired (paired: Appendix~\ref{app:effect}); it also affects M1's EMD.
+
+\section{Next Steps}
+
+Seed Open3D; evaluate M3 at friction 0.3 and 1.
+
+\bibliographystyle{IEEEtran}
+\bibliography{adlr}
+
+\clearpage
+\appendix[Calibration of the Lift Test]
+
+This appendix documents the study behind the friction of 0.3 and the decision to keep the shake optional.
+All numbers are fractions of grasps; ACRONYM's labels serve as ground truth.
+
+\subsection{Design}\label{app:design}
+
+\textbf{Objects.} The first five test objects of each category, 20 objects of 1--282\,g, each in the 3
+test rotations (60 cases). The first two per category form the \emph{tuning} set (8 objects), the other
+three the \emph{held-out} set (12 objects).
+
+\textbf{Grasps.} Per case 100 randomly drawn ACRONYM-labelled successes and 50 labelled failures, of
+which we keep those that pass our collision and contact checks (all but 3): 2400 successes and 1197
+failures for tuning, 3600 and 1800 held out. Every setting is evaluated on the same grasps (paired).
+
+\textbf{Metrics.} $S$, the pass rate of labelled successes; $F$, the pass rate of labelled failures; the
+balanced accuracy $\mathit{BA} = (S + 1 - F)/2$.
+
+\textbf{Selection rule}, written down before the tuning results were inspected and before any held-out run
+with a changed friction. Candidates: friction $\mu \in \{0.2, 0.3, \dots, 0.8, 1\}$, shake off or on.
+Among the settings with $S \ge 0.95$ on the tuning set, take the highest $\mathit{BA}$; among those
+within 0.01 of it, prefer shake off, then the friction closest to 1.
+
+\subsection{Friction Sweep on the Tuning Set}\label{app:sweep}
+
+Lowering the friction rejects labelled failures much faster than labelled successes
+(Table~\ref{tab:sweep}). Friction 0.2 has the highest balanced accuracy but passes only 92.2\,\% of
+labelled successes, so the rule selects 0.3. The shake raises $\mathit{BA}$ by at most 0.03 for
+$\mu \ge 0.4$ and lowers it for $\mu \le 0.3$.
+
+\begin{table}[!h]
+  \centering
+  \caption{Tuning set (8 objects, 2400 labelled successes, 1197 labelled failures).}
+  \label{tab:sweep}
+  \begin{tabular}{@{}lcccccc@{}}
+    \toprule
+    & \multicolumn{3}{c}{Shake off} & \multicolumn{3}{c}{Shake on} \\
+    \cmidrule(lr){2-4}\cmidrule(l){5-7}
+    $\mu$ & $S$ & $F$ & $\mathit{BA}$ & $S$ & $F$ & $\mathit{BA}$ \\
+    \midrule
+    0.2 & 0.922 & 0.204 & 0.859 & 0.835 & 0.164 & 0.835 \\
+    \textbf{0.3} & \textbf{0.953} & \textbf{0.336} & \textbf{0.809} & 0.879 & 0.277 & 0.801 \\
+    0.4 & 0.971 & 0.424 & 0.774 & 0.905 & 0.349 & 0.778 \\
+    0.5 & 0.983 & 0.477 & 0.753 & 0.924 & 0.400 & 0.762 \\
+    0.6 & 0.986 & 0.512 & 0.737 & 0.935 & 0.428 & 0.754 \\
+    0.7 & 0.987 & 0.543 & 0.722 & 0.941 & 0.459 & 0.741 \\
+    0.8 & 0.989 & 0.574 & 0.707 & 0.950 & 0.477 & 0.736 \\
+    1   & 0.988 & 0.590 & 0.699 & 0.958 & 0.509 & 0.725 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Held-Out Evaluation}\label{app:heldout}
+
+Friction 0.3 transfers to the held-out objects ($\mathit{BA}$ 0.807, tuning 0.809) and raises
+$\mathit{BA}$ in every category, by 0.10--0.15 (Table~\ref{tab:heldout}). The shake alone gains 0.02; it
+acts mostly on Laptops, whose labelled failures pass at 0.25 instead of 0.52, at the cost of 22 points of
+Laptop successes. Adding the shake to friction 0.3
+leaves $\mathit{BA}$ unchanged (0.808) and costs 10 points of labelled successes.
+
+\begin{table}[!h]
+  \centering
+  \caption{Held-out set (12 objects; 900 labelled successes and 450 labelled failures per category).}
+  \label{tab:heldout}
+  \begin{tabular}{@{}llccc@{}}
+    \toprule
+    Category & Setting & $S$ & $F$ & $\mathit{BA}$ \\
+    \midrule
+    \multirow{4}{*}{All} & $\mu{=}1$ & 0.996 & 0.637 & 0.680 \\
+     & $\mu{=}1$, shake & 0.939 & 0.534 & 0.702 \\
+     & $\mu{=}0.3$ & \textbf{0.962} & \textbf{0.348} & \textbf{0.807} \\
+     & $\mu{=}0.3$, shake & 0.858 & 0.241 & 0.808 \\
+    \midrule
+    \multirow{4}{*}{Laptop} & $\mu{=}1$ & 0.997 & 0.518 & 0.739 \\
+     & $\mu{=}1$, shake & 0.779 & 0.249 & 0.765 \\
+     & $\mu{=}0.3$ & 0.957 & 0.247 & 0.855 \\
+     & $\mu{=}0.3$, shake & 0.692 & 0.091 & 0.801 \\
+    \midrule
+    \multirow{4}{*}{Mug} & $\mu{=}1$ & 0.992 & 0.596 & 0.698 \\
+     & $\mu{=}1$, shake & 0.986 & 0.573 & 0.706 \\
+     & $\mu{=}0.3$ & 0.959 & 0.369 & 0.795 \\
+     & $\mu{=}0.3$, shake & 0.947 & 0.316 & 0.816 \\
+    \midrule
+    \multirow{4}{*}{Bowl} & $\mu{=}1$ & 1.000 & 0.584 & 0.708 \\
+     & $\mu{=}1$, shake & 1.000 & 0.511 & 0.744 \\
+     & $\mu{=}0.3$ & 0.954 & 0.249 & 0.853 \\
+     & $\mu{=}0.3$, shake & 0.830 & 0.078 & 0.876 \\
+    \midrule
+    \multirow{4}{*}{Pencil} & $\mu{=}1$ & 0.997 & 0.851 & 0.573 \\
+     & $\mu{=}1$, shake & 0.991 & 0.804 & 0.593 \\
+     & $\mu{=}0.3$ & 0.978 & 0.527 & 0.726 \\
+     & $\mu{=}0.3$, shake & 0.961 & 0.478 & 0.742 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{The Shake}\label{app:shake}
+
+\textbf{Motion.} After the lift, the lift target follows $A\,(1 - \cos 2\pi f t)$ for 5 periods
+(1\,s), with $A = 5$\,cm and $f = 5$\,Hz, a commanded peak acceleration $A (2\pi f)^2 = 49$\,m/s$^2$
+(5\,g). The position-controlled lift axis achieves 96--97\,\% of it with a 10\,g and a 300\,g object
+(at 10\,Hz only 85--88\,\%). The parameters were chosen in a sweep of amplitude (5--80\,mm), frequency
+(3, 5, 10\,Hz) and duration (5, 15 periods) on the tuning objects; stronger shakes gained at most 0.01 in
+$\mathit{BA}$ and cost more labelled successes. Unlike ACRONYM's shake (below), ours is vertical only.
+
+\textbf{Why only heavy objects react.} At friction 1 the two 40\,N fingers can carry 80\,N of
+tangential load, enough for a centred object of about 1.4\,kg at the peak acceleration plus gravity, while the
+objects weigh at most 282\,g. The shake can therefore only dislodge objects through the torque of an
+off-centre load, which turns the object about the finger axis and grows with mass. Accordingly, its effect
+on the labelled failures correlates with object mass ($r = 0.97$ over the 20 objects), and on the
+labelled successes it is confined to the two heaviest Laptops (147\,g: $S$ 1.00$\to$0.77; 282\,g:
+1.00$\to$0.35).
+
+\textbf{Why optional.} The rule prefers it off; with friction 0.3 it does not improve $\mathit{BA}$,
+costs labelled successes (held-out Bowls 0.954$\to$0.830), and adds up to 60\,\% simulation time.
+
+\subsection{Effect on the Evaluation}\label{app:effect}
+
+On the same random and EquiGraspFlow grasps (all 20 objects, paired; Table~\ref{tab:effect}), collision
+and contact are unchanged by construction. Friction 0.3 lowers the success of labelled successes by
+3.4 points but that of EquiGraspFlow grasps at NFE~10--80 by only 0.5--1.5 points (NFE~5: 4.2); the
+ordering across NFE is unchanged. On the full test split (Table~\ref{tab:results}, unpaired runs) the drops
+are larger, 4.8 points for ground truth and 2.0--3.3 for EquiGraspFlow at NFE~10--80, with the same
+pattern.
+
+\begin{table}[!h]
+  \centering
+  \caption{Success on all 20 objects (60 cases $\times$ 100 grasps), same grasps in every column.}
+  \label{tab:effect}
+  \begin{tabular}{@{}lrccc@{}}
+    \toprule
+    Grasps & NFE & $\mu{=}1$ & $\mu{=}0.3$ & $\mu{=}1$, shake \\
+    \midrule
+    Random & -- & 0.001 & 0.000 & 0.001 \\
+    Euler & 1 & 0.009 & 0.007 & 0.008 \\
+    Euler & 2 & 0.124 & 0.113 & 0.115 \\
+    Euler & 5 & 0.625 & 0.583 & 0.592 \\
+    Euler & 10 & 0.960 & 0.945 & 0.921 \\
+    Euler & 20 & 0.981 & 0.976 & 0.943 \\
+    RK4-MK & 80 & 0.985 & 0.977 & 0.938 \\
+    Labelled successes & -- & 0.993 & 0.959 & 0.947 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Robustness}\label{app:robust}
+
+No simulated grasp of the study raised a MuJoCo instability warning. Held objects do not creep: over the
+1\,s hold, labelled successes move relative to the hand by a median of 0.08\,mm (95th percentile 1.0\,mm)
+at friction 0.3 and 0.21\,mm (2.5\,mm) at friction 1. Table~\ref{tab:robust} repeats the evaluation on
+rotation 0 of all 20 objects. Halving the time step shifts $S$ and $F$ by up to 2.1 points at friction 0.3
+(4.7 points for $F$ at friction 1), but the gain in $\mathit{BA}$ of friction 0.3 over 1 remains (0.109 at 2\,ms, 0.127 at 1\,ms). MuJoCo's contacts here include torsional
+friction (coefficient 0.005); setting it to 0 or 0.02, or adding rolling friction, changes $\mathit{BA}$ by
+at most 0.008.
+
+\begin{table}[!h]
+  \centering
+  \caption{Rotation 0 of all 20 objects (2000 labelled successes, 999 labelled failures).}
+  \label{tab:robust}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    Setting & $S$ & $F$ & $\mathit{BA}$ \\
+    \midrule
+    $\mu{=}1$ & 0.993 & 0.607 & 0.693 \\
+    $\mu{=}1$, time step 1\,ms & 0.997 & 0.654 & 0.672 \\
+    $\mu{=}0.3$ & 0.960 & 0.354 & 0.803 \\
+    $\mu{=}0.3$, time step 1\,ms & 0.973 & 0.375 & 0.799 \\
+    $\mu{=}0.3$, torsional friction 0 & 0.943 & 0.324 & 0.809 \\
+    $\mu{=}0.3$, torsional friction 0.02 & 0.955 & 0.333 & 0.811 \\
+    $\mu{=}0.3$, with rolling friction & 0.959 & 0.355 & 0.802 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Interpretation}\label{app:interp}
+
+\textbf{Where the rejections occur.} At friction 0.3, 1913 of the 2997 labelled failures (all 20 objects)
+are lost while the fingers close, before gravity is switched on, against 1093 at friction 1; this accounts
+for nearly all of the 825 additional rejections. Of the 6000 labelled successes, 215 are lost during
+closing (friction 1: 37), 178 of the 207 additional rejections. Without gravity, a closing parallel
+gripper squeezes an object out when the contact forces leave the friction cones, whose half-angle shrinks
+from 45$^\circ$ at friction 1 to 17$^\circ$ at 0.3. The calibrated test therefore mainly demands nearly
+antipodal contacts; it is not primarily a test of load.
+
+\textbf{ACRONYM's protocol}~\cite{eppner2021acronym}: FleX with rigid bodies and no gravity, friction 1
+and density 150\,kg/m$^3$ for all objects; the fingers close with a velocity controller until a force
+threshold is reached or the hand is closed; the hand then shakes, moving up and down along the approach
+direction and rotating about an axis parallel to the finger joints; a grasp succeeds if the object still
+touches both fingers. Ours differs in the simulator and contact model, the convex decomposition, a fixed
+40\,N grip, and gravity with a lift and hold in place of the shake.
+
+\textbf{Residual disagreement.} On the held-out objects 3.8\,\% of labelled successes fail and 34.8\,\% of
+labelled failures pass, most for Pencils. Some of this is likely irreducible: ACRONYM reports that its
+gravity-free shaking labels have 91\,\% precision and 93\,\% recall with respect to labels obtained with
+gravity in the same simulator~\cite{eppner2021acronym}, and a different simulator and protocol cannot be
+expected to agree more closely.
+
+\end{document}

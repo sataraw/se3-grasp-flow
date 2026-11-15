@@ -17,5 +17,7 @@ DATA_DIR = Path(os.environ.get("GRASPGEN_DATA", REPO_ROOT / "data"))
 # EquiGraspFlow's preprocessed ACRONYM subset: grasps/, meshes/, splits/
 DATASET_DIR = DATA_DIR / "dataset"
 CHECKPOINT_DIR = DATA_DIR / "checkpoints"
+# Derived data that can be regenerated (convex decompositions of the object meshes)
+CACHE_DIR = DATA_DIR / "cache"
 
 RESULTS_DIR = REPO_ROOT / "results"

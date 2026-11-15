@@ -70,7 +70,38 @@ Known numerical limit: their `log_SO3` regularizes with `EPS = 1e-4` and is accu
 2.5 rad and ~1e-3 rad at 3 rad (see `tests/test_lie.py`). Relevant for anything built on log, such as the
 GMF-SG semigroup loss.
 
-## 5. LaTeX
+## 5. MuJoCo evaluation
+
+`graspgen.sim` evaluates grasps physically; `scripts/eval_mujoco.py` runs it on the test split.
+
+```bash
+uv run python scripts/eval_mujoco.py --source gt random                       # calibration
+uv run python scripts/eval_mujoco.py --solver SE3_Euler --steps 1 2 5 10 20   # NFE sweep
+uv run python scripts/eval_mujoco.py --source gt random --friction 1.0        # uncalibrated friction
+```
+
+- **Gripper**: Franka Panda hand with the collision geometry of MuJoCo Menagerie (two small meshes are
+  vendored in `src/graspgen/sim/assets/panda_hand/`), rigidly mounted on a vertical lift axis, 40 N per finger.
+- **Object**: free body made of the convex parts of a CoACD decomposition (cached in `data/cache/coacd`), with
+  the mass stored in the ACRONYM grasp file.
+- **Friction**: finger–object sliding friction 0.3 by default (`SimConfig.friction`, written to the gripper and
+  the object geoms, since MuJoCo combines the two by their maximum). 0.3 is calibrated against ACRONYM's
+  success/failure labels (see the appendix of the M2 report), not a physical pad friction; `--friction 1.0` is
+  the uncalibrated setting (the value ACRONYM stores, and what all results before the calibration used).
+  A non-default friction is appended to the output directories, e.g. `<dir>-friction1`; directories without the
+  suffix hold friction 0.3. `summary.json` records the value; `scripts/view_mujoco.py` replays older results
+  without it at 1.0.
+- **Per grasp**: collision check of the open hand, contact check (object between the fingers), then close
+  without gravity, switch gravity on, lift 15 cm, hold 1 s. Success: both fingers still touch the object and
+  it has followed the hand. Colliding grasps count as failures. Optional extension, off by default: `--shake`
+  additionally shakes the hand vertically before the hold (5 cycles of 5 cm amplitude at 5 Hz, 49 m/s^2 peak);
+  results go to `<dir>-shake`.
+- **Frames**: grasp poses are ACRONYM hand poses (z approach, x closing axis) in metres, in the frame of the
+  test case (origin at the point-cloud centroid). The reference dataset is scaled by 8; the script converts.
+
+Results go to `results/mujoco/`; the output files and metrics are described in the script's docstring.
+
+## 6. LaTeX
 
 ```bash
 cd latex

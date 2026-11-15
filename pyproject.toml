@@ -28,6 +28,7 @@ dependencies = [
     # Simulation and geometry
     "mujoco",
     "trimesh",
+    "coacd>=1.0.14",
 ]
 
 [dependency-groups]
