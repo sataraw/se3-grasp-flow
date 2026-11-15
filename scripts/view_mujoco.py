@@ -1,8 +1,10 @@
 """Replay grasps of a MuJoCo evaluation (scripts/eval_mujoco.py) in the interactive MuJoCo viewer.
 
-Takes the output directory of an evaluation, rebuilds the simulation of one test case and replays
-the stored grasps in real time: close without gravity, gravity on, lift, hold. The stored outcome
-of each grasp is printed next to the outcome of the replay.
+Takes the output directory of an evaluation, rebuilds the simulation of one test case with the
+settings in its summary.json and replays the stored grasps in real time with `GraspSim.lift_and_hold`:
+close without gravity, gravity on, lift, shake if the evaluation did, hold. A replay ends early when
+the object is lost, as in the evaluation. The stored outcome of each grasp is printed next to the
+outcome of the replay.
 
     uv run python scripts/view_mujoco.py results/mujoco/calibration/gt                 # first case
     uv run python scripts/view_mujoco.py results/mujoco/calibration/gt --list
@@ -20,6 +22,8 @@ because the reference loader centres every case on a freshly sampled point cloud
 """
 
 import argparse
+import dataclasses
+import json
 import time
 from pathlib import Path
 
@@ -30,7 +34,8 @@ import pandas as pd
 
 from graspgen import egf
 from graspgen.sim.acronym import load_test_cases
-from graspgen.sim.lift import GRAVITY, GraspSim
+from graspgen.sim.gripper import GripperConfig
+from graspgen.sim.lift import GraspSim, SimConfig
 
 KEY_STEPS = {257: 0, 262: 1, 263: -1}  # GLFW key codes: Enter, Right, Left -> change of grasp
 
@@ -57,30 +62,33 @@ def wait(viewer, pressed: list[int], seconds: float) -> None:
 
 def replay(sim: GraspSim, viewer, pressed: list[int], slow: float) -> bool:
     """`GraspSim.lift_and_hold` from the state set by `reset`, stepped in real time."""
-    cfg, m, d = sim.cfg, sim.model, sim.data
+    last = [time.perf_counter()]
 
-    def run(duration, lift=None):
-        steps = round(duration / m.opt.timestep)
-        for i in range(steps):
-            if lift is not None:
-                s = (i + 1) / steps
-                d.ctrl[sim._lift_ctrl] = lift * s * s * (3.0 - 2.0 * s)
-            start = time.perf_counter()
-            mujoco.mj_step(m, d)
-            poll(viewer, pressed)
-            time.sleep(max(0.0, m.opt.timestep * slow - (time.perf_counter() - start)))
+    def step():
+        poll(viewer, pressed)
+        time.sleep(max(0.0, sim.model.opt.timestep * slow - (time.perf_counter() - last[0])))
+        last[0] = time.perf_counter()
 
-    d.ctrl[sim._finger_ctrl] = m.actuator_ctrlrange[sim._finger_ctrl, 0]
-    run(cfg.close_time)
-    if sim.fingers_touching() < 2:
-        return False
-    m.opt.gravity[2] = -GRAVITY
-    run(cfg.settle_time)
-    z_start = d.xipos[sim._object, 2]
-    run(cfg.lift_time, lift=cfg.lift_height)
-    run(cfg.hold_time)
-    lifted = d.xipos[sim._object, 2] - z_start > cfg.min_lift_fraction * cfg.lift_height
-    return bool(lifted) and sim.fingers_touching() == 2
+    sim.on_step = step
+    return sim.lift_and_hold()
+
+
+def sim_config(summary: dict) -> SimConfig:
+    """The simulation settings of an evaluation; settings it did not record keep their defaults.
+
+    Except friction: evaluations from before it was a setting (no "friction", or null) ran with the larger of
+    the gripper's friction (1.0) and the object's (1.0 in every ACRONYM file), so they replay at 1.0.
+    """
+    stored = dict(summary.get("sim", {}))
+    gripper = stored.pop("gripper", {})
+    if stored.get("friction") is None:
+        stored["friction"] = max(gripper.get("friction", 1.0), 1.0)
+    fields = {f.name for f in dataclasses.fields(SimConfig)} - {"gripper"}
+    gripper_fields = {f.name for f in dataclasses.fields(GripperConfig)}
+    return SimConfig(
+        gripper=GripperConfig(**{k: v for k, v in gripper.items() if k in gripper_fields}),
+        **{k: v for k, v in stored.items() if k in fields},
+    )
 
 
 def main():
@@ -112,12 +120,19 @@ def main():
 
     # The evaluation keeps the first objects of every category; load just as many
     max_objects = int(per_case.groupby("category").obj_idx.nunique().max())
-    cases, _ = load_test_cases(egf.load_config("equigraspflow_full").data.test.dataset, max_objects)
+    summary = json.loads((args.eval_dir / "summary.json").read_text())
+    coacd_threshold = summary.get("sim", {}).get("coacd_threshold", 0.05)
+    cases, _ = load_test_cases(
+        egf.load_config("equigraspflow_full").data.test.dataset, max_objects, coacd_threshold
+    )
     case = next(
         c for c in cases if (c.category, c.obj_idx, c.rot_idx) == (row.category, row.obj_idx, row.rot_idx)
     )
-    sim = GraspSim(case.parts, case.mass, case.friction)
+    sim = GraspSim(case.parts, case.mass, sim_config(summary))
     print(f"case {args.case}: {row.category} {row.obj_idx}, rotation {row.rot_idx}, {case.mass * 1e3:.0f} g")
+    if sim.cfg.shake:
+        print(f"shake: {sim.cfg.shake_amplitude * 1e3:g} mm at {sim.cfg.shake_frequency:g} Hz")
+    print(f"friction: {sim.cfg.friction:g}")
 
     def show(i: int) -> None:
         sim.reset(stored["Ts_grasp"][args.case, i])

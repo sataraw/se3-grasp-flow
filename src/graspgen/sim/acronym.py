@@ -30,7 +30,6 @@ class GraspCase:
     Ts_gt: np.ndarray  # (N, 4, 4) successful ACRONYM grasps [m]
     parts: list[np.ndarray]  # convex parts of the object, vertices (K_i, 3) [m]
     mass: float  # [kg]
-    friction: float
 
 
 def load_test_cases(
@@ -59,7 +58,6 @@ def load_test_cases(
             with h5py.File(DATASET_DIR / "grasps" / category / filename) as data:
                 mesh = egf.load_mesh(data)  # metres, in the frame of the mesh file
                 mass = float(data["object/mass"][()])
-                friction = float(data["object/friction"][()])
             vertices = np.asarray(mesh.vertices)
             parts = decompose(
                 vertices,
@@ -90,7 +88,6 @@ def load_test_cases(
                         Ts_gt=Ts_gt,
                         parts=[(part - centre) @ R.T for part in parts],
                         mass=mass,
-                        friction=friction,
                     )
                 )
     return cases, scale

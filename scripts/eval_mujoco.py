@@ -13,6 +13,16 @@ the Panda hand (see graspgen/sim/lift.py for the protocol). Grasp sources:
     uv run python scripts/eval_mujoco.py                                    # released checkpoint, RK4-MK 20
     uv run python scripts/eval_mujoco.py --solver SE3_Euler --steps 1 2 5 10 20   # NFE sweep
     uv run python scripts/eval_mujoco.py --source gt --max-objects 2 --num-grasps 20   # quick look
+    uv run python scripts/eval_mujoco.py --source gt random --friction 1.0  # uncalibrated friction
+    uv run python scripts/eval_mujoco.py --source gt random --shake         # optional extension
+
+--friction sets the sliding friction of the finger-object contacts. The default, 0.3, is calibrated against
+ACRONYM's success/failure labels (see the appendix of the M2 report); 1.0, the value ACRONYM stores, is the
+uncalibrated setting of earlier results. A friction other than the default is appended to the output
+directories, e.g. -friction1; directories without the suffix hold friction 0.3 (summary.json records it).
+--shake, an optional extension that is off by default, shakes the hand vertically at the top of the lift
+(5 cycles of 5 cm at 5 Hz, 49 m/s^2 peak, see SimConfig in graspgen/sim/lift.py); the output directories
+then get the suffix -shake.
 
 Outputs: results/mujoco/calibration/<source>/ and results/mujoco/<run-dir name>/<solver>-<steps>/ with
 
@@ -135,7 +145,7 @@ def egf_grasps(model, cases: list[GraspCase], num_grasps: int, scale: float, dev
 
 
 def simulate(pool, cases: list[GraspCase], grasps: list[np.ndarray], cfg: SimConfig) -> list[dict]:
-    tasks = [(case.parts, case.mass, case.friction, Ts, cfg) for case, Ts in zip(cases, grasps, strict=True)]
+    tasks = [(case.parts, case.mass, Ts, cfg) for case, Ts in zip(cases, grasps, strict=True)]
     jobs = [pool.apply_async(evaluate_object, task) for task in tasks]
     return [job.get() for job in tqdm(jobs, desc="Simulating", leave=False)]
 
@@ -191,6 +201,13 @@ def main():
     sim.add_argument("--lift-height", type=float, default=SimConfig.lift_height, help="[m]")
     sim.add_argument("--collision-tol", type=float, default=SimConfig.collision_tol, help="[m]")
     sim.add_argument("--simulate-colliding", action="store_true", help="lift colliding grasps too")
+    sim.add_argument(
+        "--friction",
+        type=float,
+        default=SimConfig.friction,
+        help="finger-object sliding friction (default %(default)s, calibrated; 1.0: uncalibrated)",
+    )
+    sim.add_argument("--shake", action="store_true", help="optional: shake the hand before holding it")
     sim.add_argument("--coacd-threshold", type=float, default=0.05, help="concavity tolerance")
     args = parser.parse_args()
 
@@ -209,6 +226,8 @@ def main():
         lift_height=args.lift_height,
         collision_tol=args.collision_tol,
         simulate_colliding=args.simulate_colliding,
+        shake=args.shake,
+        friction=args.friction,
     )
 
     # Same seeding as the reference test scripts, so the test point clouds match scripts/eval_egf.py
@@ -256,6 +275,10 @@ def main():
                     "guidance": cfg.model.guidance,
                     "latency": latency,
                 }
+            if args.friction != SimConfig.friction:
+                logdir = logdir.with_name(f"{logdir.name}-friction{args.friction:g}")
+            if args.shake:
+                logdir = logdir.with_name(logdir.name + "-shake")
 
             start = time.perf_counter()
             results = simulate(pool, cases, grasps, sim_cfg)

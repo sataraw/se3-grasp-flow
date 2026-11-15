@@ -45,7 +45,6 @@ T_HAND_FROM_GRASP = np.array(
 class GripperConfig:
     grip_force: float = 40.0  # force limit of each finger [N]
     close_speed: float = 0.1  # speed of an unobstructed finger [m/s]
-    friction: float = 1.0  # sliding friction of the finger geoms
     lift_kp: float = 20000.0  # stiffness of the lift axis [N/m]
 
 
@@ -53,13 +52,11 @@ def gripper_spec(cfg: GripperConfig, timestep: float) -> mujoco.MjSpec:
     """The hand on its lift axis, without an object, as an editable model specification.
 
     hand.xml carries the defaults of `GripperConfig`; everything that depends on the configuration
-    is overwritten here, so the values in the file never take effect in an evaluation.
+    is overwritten here, so the values in the file never take effect in an evaluation. The friction of
+    the gripper geoms is set together with the object's, by `GraspSim` (graspgen/sim/lift.py).
     """
     spec = mujoco.MjSpec.from_file(str(ASSET_DIR / "hand.xml"))
     spec.option.timestep = timestep
-
-    for geom in spec.geoms:
-        geom.friction[0] = cfg.friction
 
     # A force-limited finger accelerates until joint damping balances the actuator, which sets the
     # closing speed. The gain saturates the actuator from 5 mm of position error on.

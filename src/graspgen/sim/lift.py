@@ -10,7 +10,13 @@ gripper in the object's frame (ACRONYM convention, metres). For each grasp:
 3. success    Lift-and-hold. Without gravity (the object floats, as in the ACRONYM and Isaac Gym
               protocols) the fingers close. Then gravity is switched on, the hand is raised by
               `lift_height` and held. The grasp succeeds if afterwards both fingers still touch
-              the object and the object has followed the hand.
+              the object and the object has followed the hand. As an optional extension (`shake`,
+              off by default) the hand oscillates vertically at the top of the lift before the
+              hold, by default 5 cycles of 5 cm amplitude at 5 Hz, a peak acceleration of 49 m/s^2.
+
+Friction: the finger-object sliding friction is `SimConfig.friction`, 0.3 by default. The value is a
+calibration against ACRONYM's success/failure labels (see the appendix of the M2 report), not a physical
+pad friction; ACRONYM stores 1.0 for every object, and friction=1.0 is the uncalibrated setting.
 
 Colliding grasps are failures and are not simulated unless `simulate_colliding` is set: starting
 a simulation in penetration measures the contact solver's push-out, not the grasp.
@@ -19,6 +25,7 @@ Gravity acts along -z of the frame the grasps are given in, so with randomly rot
 the load direction relative to the grasp is random as well.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import mujoco
@@ -43,12 +50,23 @@ class SimConfig:
     lift_time: float = 1.0  # [s]
     hold_time: float = 1.0  # [s]
     min_lift_fraction: float = 0.5  # the object must rise by this fraction of lift_height
+    # Vertical shake between lift and hold: the lift target rises by amplitude * (1 - cos(2 pi frequency t)),
+    # starting and ending at rest. Peak acceleration amplitude * (2 pi frequency)^2, 49 m/s^2 by default; the
+    # lift axis achieves 97 % of it at 5 Hz, 85 % at 10 Hz.
+    shake: bool = False
+    shake_amplitude: float = 0.05  # [m]
+    shake_frequency: float = 5.0  # [Hz]
+    shake_cycles: int = 5  # whole periods, so that the hand ends at lift_height
+    # Sliding friction of the finger-object contacts, the only friction setting. MuJoCo combines two geoms'
+    # coefficients by their maximum, so it is written to the gripper and the object geoms alike (the value
+    # in hand.xml and the one stored in the ACRONYM file are not used).
+    friction: float = 0.3
 
 
 class GraspSim:
     """A free-floating object, given as convex parts, and the Panda hand."""
 
-    def __init__(self, parts: list[np.ndarray], mass: float, friction: float = 1.0, cfg: SimConfig = None):
+    def __init__(self, parts: list[np.ndarray], mass: float, cfg: SimConfig = None):
         self.cfg = cfg or SimConfig()
 
         hulls = [hull for part in parts if (hull := convex_hull(np.asarray(part, dtype=np.float64)))]
@@ -57,6 +75,9 @@ class GraspSim:
         density = mass / sum(volume for _, volume in hulls)
 
         spec = gripper_spec(self.cfg.gripper, self.cfg.timestep)
+        friction = self.cfg.friction
+        for geom in spec.geoms:
+            geom.friction[0] = friction
         hand = spec.geom("hand")  # the object gets the gripper's (stiff) contact parameters
         body = spec.worldbody.add_body(name="object")
         body.add_freejoint()
@@ -86,6 +107,8 @@ class GraspSim:
         self._finger_qpos = [m.joint(name).qposadr[0] for name in ("finger_joint1", "finger_joint2")]
         self._lift_ctrl = m.actuator("lift").id
         self._finger_ctrl = [m.actuator("finger1").id, m.actuator("finger2").id]
+        # Called after every simulation step of `lift_and_hold`, e.g. to draw it
+        self.on_step: Callable[[], None] | None = None
 
     # ------------------------------------------------------------------ state
 
@@ -133,36 +156,45 @@ class GraspSim:
 
     # ------------------------------------------------------------- evaluation
 
-    def _step(self, duration: float, lift: tuple[float, float] | None = None) -> bool:
-        """Advance by `duration`; `lift=(start, end)` ramps the lift target smoothly.
+    def _step(
+        self, duration: float, lift: Callable[[float], float] | None = None, check: bool = True
+    ) -> bool:
+        """Advance by `duration`; `lift(s)` is the lift target at the fraction s of it.
 
-        Returns False as soon as the object is lost (no finger touches it) or the simulation
-        diverges.
+        Returns False if the simulation diverges, and with `check` as soon as the object is lost
+        (no finger touches it).
         """
         m, d = self.model, self.data
         steps = round(duration / m.opt.timestep)
         for i in range(steps):
             if lift is not None:
-                s = (i + 1) / steps
-                d.ctrl[self._lift_ctrl] = lift[0] + (lift[1] - lift[0]) * s * s * (3.0 - 2.0 * s)
+                d.ctrl[self._lift_ctrl] = lift((i + 1) / steps)
             mujoco.mj_step(m, d)
-            if (i + 1) % CHECK_INTERVAL == 0 and (self._unstable() or self.fingers_touching() == 0):
+            if self.on_step is not None:
+                self.on_step()
+            if check and (i + 1) % CHECK_INTERVAL == 0 and (self._unstable() or self.fingers_touching() == 0):
                 return False
         return not self._unstable()
 
     def lift_and_hold(self) -> bool:
-        """Close, lift, hold from the state set by `reset`; True if the object is still grasped."""
+        """Close, lift, (shake,) hold from the state set by `reset`; True if the object is still grasped."""
         cfg, m, d = self.cfg, self.model, self.data
         d.ctrl[self._finger_ctrl] = m.actuator_ctrlrange[self._finger_ctrl, 0]
-        mujoco.mj_step(m, d, round(cfg.close_time / m.opt.timestep))
-        if self._unstable() or self.fingers_touching() < 2:
+        if not self._step(cfg.close_time, check=False) or self.fingers_touching() < 2:
             return False
 
         m.opt.gravity[2] = -GRAVITY
         if not self._step(cfg.settle_time):
             return False
         z_start = d.xipos[self._object, 2]
-        if not self._step(cfg.lift_time, lift=(0.0, cfg.lift_height)):
+        if not self._step(cfg.lift_time, lift=lambda s: cfg.lift_height * s * s * (3.0 - 2.0 * s)):
+            return False
+        if cfg.shake and not self._step(
+            cfg.shake_cycles / cfg.shake_frequency,
+            lift=lambda s: (
+                cfg.lift_height + cfg.shake_amplitude * (1.0 - np.cos(2.0 * np.pi * cfg.shake_cycles * s))
+            ),
+        ):
             return False
         if not self._step(cfg.hold_time):
             return False
@@ -190,7 +222,7 @@ class GraspSim:
 
 
 def evaluate_object(
-    parts: list[np.ndarray], mass: float, friction: float, Ts_grasp: np.ndarray, cfg: SimConfig = None
+    parts: list[np.ndarray], mass: float, Ts_grasp: np.ndarray, cfg: SimConfig = None
 ) -> dict[str, np.ndarray]:
     """Build the simulation of one object and evaluate grasps on it (picklable, for process pools)."""
-    return GraspSim(parts, mass, friction, cfg).evaluate(Ts_grasp)
+    return GraspSim(parts, mass, cfg).evaluate(Ts_grasp)

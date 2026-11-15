@@ -60,10 +60,49 @@ def test_palm_in_object_collides(plate):
 
 
 def test_heavy_object_slips():
-    # 2 x 40 N grip force with friction 1 cannot carry 20 kg.
-    heavy = GraspSim([trimesh.creation.box((0.02, 0.12, 0.10)).vertices], mass=20.0)
+    # 2 x 40 N grip force cannot carry 20 kg even with friction 1 (Coulomb: 80 N < 196 N).
+    box = trimesh.creation.box((0.02, 0.12, 0.10)).vertices
+    heavy = GraspSim([box], mass=20.0, cfg=SimConfig(friction=1.0))
     out = evaluate(heavy, top_grasp((0, 0, 0.03)))
     assert out["contact"] and not out["success"]
+
+
+def test_shake_loses_marginal_grasp():
+    """1.2 kg plate held 4 cm beside its centre of mass: it survives the lift, but not the 5 g shake.
+
+    With friction 1, without shaking it holds up to about 2 kg; with it, it slips from about 0.75 kg on.
+    """
+    box = trimesh.creation.box((0.02, 0.12, 0.10)).vertices
+    off_centre = top_grasp((0, 0.04, 0.03))
+    assert evaluate(GraspSim([box], mass=1.2, cfg=SimConfig(friction=1.0)), off_centre)["success"]
+    shaken = GraspSim([box], mass=1.2, cfg=SimConfig(friction=1.0, shake=True))
+    assert not evaluate(shaken, off_centre)["success"]
+
+
+def test_firm_grasp_survives_shake():
+    """0.2 kg plate grasped at its centre, default friction 0.3: the shake does not shake it loose."""
+    cfg = SimConfig(shake=True)
+    sim = GraspSim([trimesh.creation.box((0.02, 0.12, 0.10)).vertices], mass=0.2, cfg=cfg)
+    lift = []
+    sim.on_step = lambda: lift.append(sim.data.qpos[sim.model.joint("lift").qposadr[0]])
+    assert evaluate(sim, top_grasp((0, 0, 0.03)))["success"]
+    # The shake oscillates between lift_height and 2 amplitudes above it; the lift axis tracks 97 % at 5 Hz.
+    assert max(lift) == pytest.approx(cfg.lift_height + 2 * cfg.shake_amplitude, rel=0.02)
+
+
+def test_friction_sets_finger_object_contacts():
+    """2 kg plate: 2 x 40 N carry it with friction 1, not with 0.2 (Coulomb: it needs 19.6 N / 80 N = 0.25).
+
+    MuJoCo combines two geoms' friction by the larger value, so the setting must reach both sides.
+    """
+    box = trimesh.creation.box((0.02, 0.12, 0.10)).vertices
+    grasp = top_grasp((0, 0, 0.03))
+    assert evaluate(GraspSim([box], 2.0, cfg=SimConfig(friction=1.0)), grasp)["success"]
+    assert not evaluate(GraspSim([box], 2.0, cfg=SimConfig(friction=0.2)), grasp)["success"]
+
+    model = GraspSim([box], 2.0).model  # default: every geom, gripper and object, has friction 0.3
+    assert SimConfig().friction == 0.3
+    np.testing.assert_array_equal(model.geom_friction[:, 0], 0.3)
 
 
 def test_results_do_not_depend_on_order(plate):
@@ -100,14 +139,16 @@ def test_simulate_colliding_is_optional(plate):
 
 
 def test_gripper_config_reaches_model():
-    cfg = SimConfig(timestep=0.001, gripper=GripperConfig(grip_force=10.0, close_speed=0.05, friction=0.4))
-    model = GraspSim([trimesh.creation.box((0.02, 0.12, 0.10)).vertices], 0.2, cfg=cfg).model
+    cfg = SimConfig(timestep=0.001, gripper=GripperConfig(grip_force=10.0, close_speed=0.05), friction=0.4)
+    sim = GraspSim([trimesh.creation.box((0.02, 0.12, 0.10)).vertices], 0.2, cfg=cfg)
+    model = sim.model
 
     assert model.opt.timestep == 0.001
     for name in ("finger1", "finger2"):
         np.testing.assert_allclose(model.actuator(name).forcerange, [-10.0, 10.0])
     assert model.joint("finger_joint1").damping[0] == pytest.approx(10.0 / 0.05)
     assert model.geom("hand").friction[0] == 0.4
+    np.testing.assert_array_equal(model.geom_friction[sim._object_geoms, 0], 0.4)
 
 
 def test_hand_xml_holds_the_defaults():
@@ -116,9 +157,12 @@ def test_hand_xml_holds_the_defaults():
     configured = gripper_spec(GripperConfig(), SimConfig().timestep).compile()
 
     assert from_file.opt.timestep == configured.opt.timestep
-    for field in ("dof_damping", "dof_armature", "geom_friction", "actuator_gainprm", "actuator_forcerange"):
+    for field in ("dof_damping", "dof_armature", "actuator_gainprm", "actuator_forcerange"):
         np.testing.assert_allclose(getattr(from_file, field), getattr(configured, field))
     np.testing.assert_allclose(from_file.actuator_biasprm, configured.actuator_biasprm, rtol=1e-4)
+    # Friction is set by GraspSim, on the gripper geoms (listed first) and the object's
+    default = GraspSim([trimesh.creation.box((0.02, 0.12, 0.10)).vertices], 0.2).model
+    np.testing.assert_allclose(from_file.geom_friction, default.geom_friction[: from_file.ngeom])
 
 
 def test_decomposition_failure_is_reported(tmp_path):
@@ -130,7 +174,7 @@ def test_decomposition_failure_is_reported(tmp_path):
 
 
 def test_light_object_is_not_squeezed_through():
-    """8 g rod, 2 cm thick: the 40 N fingers must stop at its surface and hold it steadily.
+    """8 g rod, 2 cm thick: the 40 N fingers must stop at its surface and hold it steadily (friction 0.3).
 
     With MuJoCo's default (soft, mass-scaled) contacts they went through it and ejected it.
     """

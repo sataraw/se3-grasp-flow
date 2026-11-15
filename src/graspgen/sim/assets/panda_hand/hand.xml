@@ -17,9 +17,9 @@
          of the lighter body. With the defaults the fingers squeeze through an object of a few grams
          by more than a centimetre and eject it. These values keep the penetration well below a
          millimetre; the object geoms get the same ones (graspgen/sim/lift.py).
-         friction[0]: GripperConfig -->
+         friction[0]: SimConfig.friction, set on these and the object geoms alike (graspgen/sim/lift.py) -->
     <default class="gripper">
-      <geom contype="1" conaffinity="0" condim="4" friction="1 0.005 0.0001" group="3"
+      <geom contype="1" conaffinity="0" condim="4" friction="0.3 0.005 0.0001" group="3"
             solref="0.004 1" solimp="0.99 0.999 0.001"/>
       <default class="pad">
         <geom type="box"/>
