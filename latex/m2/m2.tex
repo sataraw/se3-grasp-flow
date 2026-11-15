@@ -1,0 +1,110 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\SO}{\mathrm{SO}(3)}
+\newcommand{\SE}{\mathrm{SE}(3)}
+
+\begin{document}
+
+\title{M2: Grasp Evaluation in MuJoCo\\[0.3em]
+  {\normalsize Milestone report $\cdot$ ADLR WS 2026/27, project idea 4}}
+
+\author{
+  \IEEEauthorblockN{Georgii Fatakhov}
+  \IEEEauthorblockA{Technical University of Munich}
+  \and
+  \IEEEauthorblockN{Awar Satar}
+  \IEEEauthorblockA{Technical University of Munich}
+}
+
+\maketitle
+
+\section{Goal and Setup}
+
+M2 checks generated grasps physically in MuJoCo~\cite{todorov2012mujoco}. The completion criterion,
+ground-truth grasps succeed at ${\gtrsim}\,90\,\%$, random grasps at ${\approx}\,0\,\%$, and
+EquiGraspFlow~\cite{lim2024equigraspflow} is evaluated across all NFE, is met. The test cases are those of
+the EMD evaluation in M1: 83 ACRONYM~\cite{eppner2021acronym} test objects in 3 rotations (249 cases),
+full point clouds, 100 grasps per case.
+
+\section{Approach}
+
+\textbf{Gripper.} A floating Franka Panda hand (collision geometry from MuJoCo
+Menagerie~\cite{zakka2022menagerie}) on a vertical, position-controlled lift axis, 40\,N per finger,
+friction 1, with stiff contacts so that light objects are not squeezed through.
+
+\textbf{Object.} A free body made of the convex parts of a CoACD~\cite{wei2022coacd} decomposition, which
+keeps the cavities of mugs and bowls, with ACRONYM's mass.
+
+\textbf{Protocol and metrics.} The open hand is placed at the grasp pose. A \emph{collision} is a
+penetration of the object by more than 1\,mm; \emph{contact} means the object reaches into the volume
+swept by the fingertip pads. Grasps with contact and no collision are simulated: close without gravity,
+switch gravity on, lift by 15\,cm in 1\,s, hold for 1\,s. \emph{Success} means both fingers still touch
+the object and it has risen by more than half the lift height; colliding grasps fail. Rates are fractions
+of all grasps.
+
+\textbf{Grasps} are random successful ACRONYM grasps (ground truth), samples of the model prior
+(random), or EquiGraspFlow samples from the released checkpoint, with 1--20 Euler steps or the default
+Runge--Kutta--Munthe-Kaas sampler (RK4-MK, 20 steps). As in M1, NFE counts evaluations of the guided
+vector field (two network passes each). Latency is the median time to sample one grasp.
+
+\textbf{Verification.} 38 unit tests on synthetic objects pass. Breaking the hand-frame mapping on
+purpose drops ground-truth success on four objects to 10--43\,\%.
+
+\begin{table}[!t]
+  \centering
+  \caption{Full test split, in \%. Latency of sampling one grasp in ms: NVIDIA L4 (same run) / RTX 5070 Ti
+  (local subset run).}
+  \label{tab:results}
+  \begin{tabular}{@{}lrrrrr@{}}
+    \toprule
+    Grasps & NFE & Success & Collision & Contact & Latency \\
+    \midrule
+    Ground truth & -- & 98.9 & 0.0 & 100.0 & -- \\
+    Random & -- & 0.1 & 22.1 & 5.6 & -- \\
+    \midrule
+    Euler & 1 & 0.7 & 56.0 & 20.2 & 97 / 37 \\
+    Euler & 2 & 11.1 & 63.4 & 51.9 & 98 / 39 \\
+    Euler & 5 & 62.0 & 28.2 & 91.1 & 115 / 53 \\
+    Euler & 10 & 93.7 & 4.8 & 99.8 & 147 / 76 \\
+    Euler & 20 & 96.2 & 2.5 & 99.9 & 212 / 120 \\
+    RK4-MK & 80 & 96.4 & 2.5 & 100.0 & 579 / 411 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Results}
+
+Ground truth succeeds at 98.9\,\%, random grasps at 0.1\,\%, mostly because the object is rarely between
+the fingers (Table~\ref{tab:results}). EquiGraspFlow fails at NFE~1--2, where most grasps collide or miss,
+reaches 93.7\,\% at NFE~10 and 96\,\% at NFE~20 and 80; the gap to ground truth is mostly Mug (90.0\,\% at
+NFE~80). A local run on 5 objects per category agrees within 3 points.
+
+\section{Limitations}
+
+\textbf{The lift test is lenient.} ACRONYM-labelled failures pass at 62--92\,\% on four Mug and Pencil
+objects (ground truth 90--100\,\%): objects weigh at most 0.42\,kg, the grip is strong, and the lift is
+slow and without ACRONYM's shaking. Friction 0.3 drops them to 33--68\,\% (ground truth 93--100\,\%).
+Success may thus saturate and understate differences between methods.
+
+\textbf{Not comparable} with the paper's success rates (Isaac Gym, shaking gripper).
+
+\textbf{Reproducibility.} The reference loader samples test point clouds with Open3D's unseeded generator:
+two identical runs differed in 18 of 240 grasp outcomes, and seeding Open3D made them identical. This also
+affects M1's EMD.
+
+\section{Next Steps}
+
+Seed Open3D, add a stricter test variant, evaluate M3 with this protocol.
+
+\bibliographystyle{IEEEtran}
+\bibliography{adlr}
+
+\end{document}

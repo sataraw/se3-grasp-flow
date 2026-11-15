@@ -85,7 +85,8 @@ uv run python scripts/eval_mujoco.py --solver SE3_Euler --steps 1 2 5 10 20   # 
   the mass and friction stored in the ACRONYM grasp file.
 - **Per grasp**: collision check of the open hand, contact check (object between the fingers), then close
   without gravity, switch gravity on, lift 15 cm, hold 1 s. Success: both fingers still touch the object and
-  it has followed the hand. Colliding grasps count as failures.
+  it has followed the hand. Colliding grasps count as failures. `--shake` additionally shakes the hand
+  vertically before the hold (5 cycles of 5 cm amplitude at 5 Hz, 49 m/s^2 peak); results go to `<dir>-shake`.
 - **Frames**: grasp poses are ACRONYM hand poses (z approach, x closing axis) in metres, in the frame of the
   test case (origin at the point-cloud centroid). The reference dataset is scaled by 8; the script converts.
 
